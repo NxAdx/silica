@@ -22,6 +22,7 @@ export default function RootLayout() {
       <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.bg} />
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack
+          initialRouteName="(tabs)"
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.bg },

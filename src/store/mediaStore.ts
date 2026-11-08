@@ -33,6 +33,7 @@ interface MediaState {
   removeTagFromPhoto: (photoId: string, tag: string) => Promise<void>;
   getPhotoTags: (photoId: string) => string[];
   getCollectionItems: (collectionId: string) => MediaItem[];
+  loadAlbumAssets: (albumId: string) => Promise<MediaItem[]>;
 }
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
@@ -266,17 +267,44 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         });
       });
 
-      // 3. Featured Hero Cards: Pick the top 2 rich date clusters
-      const featured: Collection[] = generatedRecentCollections.slice(0, 2).map((col, idx) => ({
-        ...col,
-        id: `feat-${col.id}`,
-        type: 'featured',
-        percentage: col.percentage || (idx === 0 ? '16%' : '24%'),
-      }));
+      // 3. Featured Hero Cards: Pick rich date clusters or highlights
+      const featured: Collection[] = [];
+      if (generatedRecentCollections.length >= 2) {
+        featured.push({
+          ...generatedRecentCollections[0],
+          id: `feat-${generatedRecentCollections[0].id}`,
+          type: 'featured',
+          percentage: generatedRecentCollections[0].percentage || '16%',
+        });
+        featured.push({
+          ...generatedRecentCollections[1],
+          id: `feat-${generatedRecentCollections[1].id}`,
+          type: 'featured',
+          percentage: generatedRecentCollections[1].percentage || '24%',
+        });
+      } else if (generatedRecentCollections.length === 1) {
+        featured.push({
+          ...generatedRecentCollections[0],
+          id: `feat-${generatedRecentCollections[0].id}`,
+          type: 'featured',
+          percentage: '100%',
+        });
+        if (items.length > 1) {
+          featured.push({
+            id: 'feat-all',
+            name: 'Highlights',
+            dateLabel: 'Highlights',
+            count: items.length,
+            storageSize: formatBytes(totalDeviceBytes),
+            coverUri: items[1]?.uri || items[0]?.uri || '',
+            percentage: '50%',
+            type: 'featured',
+          });
+        }
+      }
 
       // 4. Query Real Device Albums (Folders like Camera, Screenshots, WhatsApp, Downloads)
       let albumCollections: Collection[] = [];
-      const albumAssetsMap: Record<string, MediaItem[]> = {};
       try {
         const albums = await MediaLibrary.getAlbumsAsync({ includeSmartAlbums: true });
         albumCollections = await Promise.all(
@@ -285,30 +313,10 @@ export const useMediaStore = create<MediaState>((set, get) => ({
             .map(async (alb) => {
               const albumAssets = await MediaLibrary.getAssetsAsync({
                 album: alb,
-                first: 200,
+                first: 1,
                 sortBy: MediaLibrary.SortBy.creationTime,
               });
-              const mappedItems: MediaItem[] = albumAssets.assets
-                .filter((a) => !vaultIds.has(a.id))
-                .map((a) => ({
-                  id: a.id,
-                  uri: a.uri,
-                  filename: a.filename,
-                  width: a.width,
-                  height: a.height,
-                  creationTime: a.creationTime,
-                  modificationTime: a.modificationTime,
-                  duration: a.duration,
-                  mediaType: a.mediaType === 'video' ? 'video' : 'photo',
-                  fileSize: 2.5 * 1024 * 1024,
-                  formattedSize: formatBytes(2.5 * 1024 * 1024),
-                  isFavorite: favIds.has(a.id),
-                  albumId: alb.id,
-                  tags: tagMap.get(a.id) || [],
-                }));
-
-              albumAssetsMap[alb.id] = mappedItems;
-              const coverUri = mappedItems[0]?.uri || items[0]?.uri || '';
+              const coverUri = albumAssets.assets[0]?.uri || items[0]?.uri || '';
               const estAlbumBytes = alb.assetCount * 2.5 * 1024 * 1024;
               return {
                 id: `album-${alb.id}`,
@@ -331,7 +339,6 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         recentCollections: generatedRecentCollections,
         featuredCollections: featured,
         albumCollections,
-        albumAssetsMap,
         isLoading: false,
       });
     } catch (e) {
@@ -593,5 +600,56 @@ export const useMediaStore = create<MediaState>((set, get) => ({
 
     // Fallback
     return recentItems;
+  },
+
+  loadAlbumAssets: async (albumId: string) => {
+    try {
+      const albumAssets = await MediaLibrary.getAssetsAsync({
+        album: albumId,
+        first: 500,
+        sortBy: MediaLibrary.SortBy.creationTime,
+      });
+      const db = getDb();
+      const vaultRows = db.getAllSync<{ id: string }>('SELECT id FROM photo_metadata WHERE is_vault = 1;');
+      const vaultIds = new Set(vaultRows.map((r) => r.id));
+      const favRows = db.getAllSync<{ id: string }>('SELECT id FROM photo_metadata WHERE is_favorite = 1;');
+      const favIds = new Set(favRows.map((r) => r.id));
+      const tagRows = db.getAllSync<{ photo_id: string; tag: string }>('SELECT photo_id, tag FROM photo_tags;');
+      const tagMap = new Map<string, string[]>();
+      for (const t of tagRows) {
+        const list = tagMap.get(t.photo_id) || [];
+        list.push(t.tag);
+        tagMap.set(t.photo_id, list);
+      }
+      const mapped: MediaItem[] = albumAssets.assets
+        .filter((a) => !vaultIds.has(a.id))
+        .map((a) => ({
+          id: a.id,
+          uri: a.uri,
+          filename: a.filename,
+          width: a.width,
+          height: a.height,
+          creationTime: a.creationTime,
+          modificationTime: a.modificationTime,
+          duration: a.duration,
+          mediaType: a.mediaType === 'video' ? 'video' : 'photo',
+          fileSize: 2.5 * 1024 * 1024,
+          formattedSize: formatBytes(2.5 * 1024 * 1024),
+          isFavorite: favIds.has(a.id),
+          albumId: albumId,
+          tags: tagMap.get(a.id) || [],
+        }));
+
+      set((state) => ({
+        albumAssetsMap: {
+          ...state.albumAssetsMap,
+          [albumId]: mapped,
+        },
+      }));
+      return mapped;
+    } catch (e) {
+      console.warn('[MediaStore] loadAlbumAssets error:', e);
+      return [];
+    }
   },
 }));

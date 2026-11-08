@@ -1,15 +1,15 @@
 // Silica — Screen 2: Collection Detail View with Clean Engine
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   Dimensions,
   Modal,
   Alert,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -19,6 +19,7 @@ import * as Sharing from 'expo-sharing';
 import { useTheme } from '../../store/themeStore';
 import { useMediaStore, formatDateLabel } from '../../store/mediaStore';
 import { useVaultStore } from '../../store/vaultStore';
+import { Collection } from '../../types';
 import {
   analyzeMediaForCleanup,
   CleanerAnalysisResult,
@@ -54,6 +55,14 @@ export default function CollectionDetailScreen() {
 
   const collectionItems = getCollectionItems(id || '');
   const displayItems = collectionItems.length > 0 ? collectionItems : allMediaItems;
+  const loadAlbumAssets = useMediaStore((s) => s.loadAlbumAssets);
+
+  useEffect(() => {
+    if (id && id.startsWith('album-')) {
+      const albumId = id.replace('album-', '');
+      loadAlbumAssets(albumId);
+    }
+  }, [id, loadAlbumAssets]);
 
   let collection = [...featured, ...recent, ...custom, ...albumCollections].find((c) => c.id === id);
   if (!collection && id === 'favorites') {
@@ -67,17 +76,15 @@ export default function CollectionDetailScreen() {
       type: 'custom',
     };
   }
-  if (!collection) {
-    collection = {
-      id: id || 'collection',
-      name: 'Collection',
-      dateLabel: displayItems[0] ? formatDateLabel(displayItems[0].creationTime) : 'Collection',
-      count: displayItems.length,
-      storageSize: `${Math.round(displayItems.length * 2.5)} MB`,
-      coverUri: displayItems[0]?.uri || '',
-      type: 'recent',
-    };
-  }
+  const resolvedCollection: Collection = collection || {
+    id: id || 'collection',
+    name: 'Collection',
+    dateLabel: displayItems[0] ? formatDateLabel(displayItems[0].creationTime) : 'Collection',
+    count: displayItems.length,
+    storageSize: `${Math.round(displayItems.length * 2.5)} MB`,
+    coverUri: displayItems[0]?.uri || '',
+    type: 'recent',
+  };
 
   const handleCleanScan = () => {
     Haptics.selectionAsync();
@@ -154,187 +161,200 @@ export default function CollectionDetailScreen() {
     }
   };
 
-  return (
-    <View style={[s.container, { backgroundColor: colors.bg }]}>
-      <ScrollView
-        style={s.scrollView}
-        contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 32),
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero Header with Smooth Vignette Fade */}
-        <View style={[s.heroWrapper, { backgroundColor: isDark ? '#1C1C1E' : '#E5E5EA' }]}>
-          <Image
-            source={{ uri: collection.coverUri || displayItems[0]?.uri }}
-            style={s.heroImage}
-            contentFit="cover"
-            priority="high"
-          />
+  const renderHeader = () => (
+    <View>
+      {/* Hero Header with Smooth Vignette Fade */}
+      <View style={[s.heroWrapper, { backgroundColor: isDark ? '#1C1C1E' : '#E5E5EA' }]}>
+        <Image
+          source={{ uri: resolvedCollection.coverUri || displayItems[0]?.uri }}
+          style={s.heroImage}
+          contentFit="cover"
+          priority="high"
+        />
 
-          {/* Vignette Gradient Overlay at Bottom */}
-          <View
-            style={[
-              s.vignetteOverlay,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(0,0,0,0.65)'
-                  : 'rgba(255,255,255,0.45)',
-              },
-            ]}
-          />
+        {/* Vignette Gradient Overlay at Bottom */}
+        <View
+          style={[
+            s.vignetteOverlay,
+            {
+              backgroundColor: isDark
+                ? 'rgba(0,0,0,0.65)'
+                : 'rgba(255,255,255,0.45)',
+            },
+          ]}
+        />
 
-          {/* Top navigation actions */}
-          <View
-            style={[
-              s.topNavRow,
-              { paddingTop: Math.max(insets.top, 16) },
+        {/* Top navigation actions */}
+        <View
+          style={[
+            s.topNavRow,
+            { paddingTop: Math.max(insets.top, 16) },
+          ]}
+        >
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            }}
+            style={({ pressed }) => [
+              s.circleBtn,
+              { backgroundColor: isDark ? 'rgba(30,30,32,0.85)' : '#FFFFFF' },
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
             ]}
+            accessibilityLabel="Back"
           >
+            <Ionicons name="chevron-back" size={20} color={colors.ink} />
+          </Pressable>
+
+          <View style={s.topRightActions}>
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowSortModal(true);
+              }}
               style={({ pressed }) => [
                 s.circleBtn,
                 { backgroundColor: isDark ? 'rgba(30,30,32,0.85)' : '#FFFFFF' },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
-              accessibilityLabel="Back"
+              accessibilityLabel="Sort"
             >
-              <Ionicons name="chevron-back" size={20} color={colors.ink} />
+              <Ionicons name="swap-vertical" size={18} color={colors.ink} />
             </Pressable>
 
-            <View style={s.topRightActions}>
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setShowSortModal(true);
-                }}
-                style={({ pressed }) => [
-                  s.circleBtn,
-                  { backgroundColor: isDark ? 'rgba(30,30,32,0.85)' : '#FFFFFF' },
-                  pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-                ]}
-                accessibilityLabel="Sort"
-              >
-                <Ionicons name="swap-vertical" size={18} color={colors.ink} />
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setIsSelectMode(!isSelectMode);
-                  if (isSelectMode) setSelectedIds(new Set());
-                }}
-                style={({ pressed }) => [
-                  s.selectBtn,
-                  {
-                    backgroundColor: isSelectMode
-                      ? colors.ink
-                      : isDark
-                      ? 'rgba(30,30,32,0.85)'
-                      : '#FFFFFF',
-                  },
-                  pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                setIsSelectMode(!isSelectMode);
+                if (isSelectMode) setSelectedIds(new Set());
+              }}
+              style={({ pressed }) => [
+                s.selectBtn,
+                {
+                  backgroundColor: isSelectMode
+                    ? colors.ink
+                    : isDark
+                    ? 'rgba(30,30,32,0.85)'
+                    : '#FFFFFF',
+                },
+                pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+              ]}
+            >
+              <Text
+                style={[
+                  s.selectText,
+                  { color: isSelectMode ? colors.bg : colors.ink },
                 ]}
               >
-                <Text
-                  style={[
-                    s.selectText,
-                    { color: isSelectMode ? colors.bg : colors.ink },
-                  ]}
-                >
-                  {isSelectMode ? 'Cancel' : 'Select'}
-                </Text>
-              </Pressable>
-            </View>
+                {isSelectMode ? 'Cancel' : 'Select'}
+              </Text>
+            </Pressable>
           </View>
         </View>
+      </View>
 
-        {/* Collection Title & The Signature Clean Pill */}
-        <View style={s.metaSection}>
-          <Text style={[s.dateTitle, { color: colors.ink }]}>
-            {collection.name || collection.dateLabel}
-          </Text>
+      {/* Collection Title & The Signature Clean Pill */}
+      <View style={s.metaSection}>
+        <Text style={[s.dateTitle, { color: colors.ink }]}>
+          {resolvedCollection.name || resolvedCollection.dateLabel}
+        </Text>
 
-          <Pressable
-            onPress={handleCleanScan}
-            style={({ pressed }) => [
-              s.cleanPill,
-              {
-                borderColor: colors.stroke,
-                backgroundColor: isDark ? '#1C1C1E' : '#F6F6F8',
-              },
-              pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
-            ]}
-          >
-            <Text style={[s.cleanText, { color: colors.ink }]}>Clean</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={handleCleanScan}
+          style={({ pressed }) => [
+            s.cleanPill,
+            {
+              borderColor: colors.stroke,
+              backgroundColor: isDark ? '#1C1C1E' : '#F6F6F8',
+            },
+            pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+          ]}
+        >
+          <Text style={[s.cleanText, { color: colors.ink }]}>Clean</Text>
+        </Pressable>
+      </View>
 
-        {/* All Images Section Header with dynamic count */}
-        <View style={s.allImagesHeader}>
-          <Text style={[s.allImagesTitle, { color: colors.ink }]}>
-            All Images
-          </Text>
-          <Text style={[s.allImagesCount, { color: colors.inkDim }]}>
-            {displayItems.length}
-          </Text>
-        </View>
+      {/* All Images Section Header with dynamic count */}
+      <View style={s.allImagesHeader}>
+        <Text style={[s.allImagesTitle, { color: colors.ink }]}>
+          All Images
+        </Text>
+        <Text style={[s.allImagesCount, { color: colors.inkDim }]}>
+          {displayItems.length}
+        </Text>
+      </View>
+    </View>
+  );
 
-        {/* 3-Column Squircle Photo Grid */}
-        <View style={s.gridContainer}>
-          {displayItems.map((item, idx) => {
-            const isSelected = selectedIds.has(item.id);
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => {
-                  if (isSelectMode) {
-                    toggleSelect(item.id);
-                  } else {
-                    router.push(`/viewer/${item.id}`);
-                  }
-                }}
-                style={({ pressed }) => [
-                  s.gridCard,
-                  { borderRadius: radius.grid },
-                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                ]}
-              >
-                <Image
-                  source={{ uri: item.uri }}
-                  style={[s.gridThumb, { borderRadius: radius.grid }]}
-                  contentFit="cover"
-                  transition={150}
-                  priority="high"
-                  cachePolicy="memory-disk"
-                />
+  const renderGridItem = ({ item }: { item: any }) => {
+    const isSelected = selectedIds.has(item.id);
+    return (
+      <View style={s.gridCellWrapper}>
+        <Pressable
+          onPress={() => {
+            if (isSelectMode) {
+              toggleSelect(item.id);
+            } else {
+              router.push(`/viewer/${item.id}`);
+            }
+          }}
+          style={({ pressed }) => [
+            s.gridCard,
+            { borderRadius: radius.grid },
+            pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+          ]}
+        >
+          <Image
+            source={{ uri: item.uri }}
+            style={[s.gridThumb, { borderRadius: radius.grid }]}
+            contentFit="cover"
+            transition={150}
+            priority="high"
+            cachePolicy="memory-disk"
+          />
 
-                {/* Selection Checkmark Badge */}
-                {isSelectMode && (
-                  <View
-                    style={[
-                      s.selectionBadge,
-                      isSelected && { backgroundColor: colors.ink },
-                    ]}
-                  >
-                    {isSelected && (
-                      <Ionicons name="checkmark" size={14} color={colors.bg} />
-                    )}
-                  </View>
-                )}
+          {/* Selection Checkmark Badge */}
+          {isSelectMode && (
+            <View
+              style={[
+                s.selectionBadge,
+                isSelected && { backgroundColor: colors.ink },
+              ]}
+            >
+              {isSelected && (
+                <Ionicons name="checkmark" size={14} color={colors.bg} />
+              )}
+            </View>
+          )}
 
-                {/* Favorite Heart Badge */}
-                {item.isFavorite && !isSelectMode && (
-                  <View style={s.favoriteBadge}>
-                    <Ionicons name="heart" size={13} color="#FF3B30" />
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
+          {/* Favorite Heart Badge */}
+          {item.isFavorite && !isSelectMode && (
+            <View style={s.favoriteBadge}>
+              <Ionicons name="heart" size={13} color="#FF3B30" />
+            </View>
+          )}
+        </Pressable>
+      </View>
+    );
+  };
+
+  return (
+    <View style={[s.container, { backgroundColor: colors.bg }]}>
+      <FlashList
+        data={displayItems}
+        renderItem={renderGridItem}
+        keyExtractor={(item) => item.id}
+        numColumns={NUM_COLUMNS}
+        estimatedItemSize={ITEM_WIDTH * 1.35}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 32),
+        }}
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* Select Mode Floating Bottom Batch Bar */}
       {isSelectMode && (
@@ -693,6 +713,12 @@ const s = StyleSheet.create({
     flexWrap: 'wrap',
     gap: COLUMN_GAP,
     paddingHorizontal: 20,
+  },
+  gridCellWrapper: {
+    paddingHorizontal: COLUMN_GAP / 2,
+    marginBottom: COLUMN_GAP,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gridCard: {
     width: ITEM_WIDTH,
