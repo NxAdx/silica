@@ -17,3 +17,4 @@ const result =
       });
 
 process.exit(result.status ?? 1);
+
