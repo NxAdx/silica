@@ -1,4 +1,4 @@
-// Silica — Screen 3: Biometric & PIN Secret Vault
+// Silica — Screen 3: Biometric & PIN Secret Vault (Matching Ground Truth Spec)
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -21,7 +21,7 @@ import { useMediaStore } from '../../store/mediaStore';
 
 const { width } = Dimensions.get('window');
 const COLUMN_GAP = 12;
-const NUM_COLUMNS = 3;
+const NUM_COLUMNS = 2;
 const ITEM_WIDTH = (width - 40 - COLUMN_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 export default function VaultTab() {
@@ -44,6 +44,8 @@ export default function VaultTab() {
 
   const [enteredPin, setEnteredPin] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [setupStep, setSetupStep] = useState<'create' | 'confirm'>('create');
+  const [firstEnteredPin, setFirstEnteredPin] = useState('');
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
   const [newPin, setNewPin] = useState('');
@@ -52,6 +54,7 @@ export default function VaultTab() {
     checkHasPin();
   }, []);
 
+  // Handle PIN entry during setup or verification
   const handleDigitPress = async (digit: string) => {
     if (enteredPin.length >= 4) return;
     Haptics.selectionAsync();
@@ -60,15 +63,46 @@ export default function VaultTab() {
     setEnteredPin(nextPin);
 
     if (nextPin.length === 4) {
-      const ok = await verifyPin(nextPin);
-      if (!ok) {
-        setPinError(true);
-        setTimeout(() => {
+      if (!hasCustomPin) {
+        // Setup flow: Create then Confirm
+        if (setupStep === 'create') {
+          setFirstEnteredPin(nextPin);
           setEnteredPin('');
-          setPinError(false);
-        }, 600);
+          setSetupStep('confirm');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          // Confirm step
+          if (nextPin === firstEnteredPin) {
+            await setPin(nextPin);
+            setEnteredPin('');
+            setFirstEnteredPin('');
+            setSetupStep('create');
+            useVaultStore.setState({ isUnlocked: true });
+            await useVaultStore.getState().loadVaultItems();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } else {
+            setPinError(true);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            setTimeout(() => {
+              setEnteredPin('');
+              setPinError(false);
+              setSetupStep('create');
+              setFirstEnteredPin('');
+            }, 750);
+          }
+        }
       } else {
-        setEnteredPin('');
+        // Normal verification flow
+        const ok = await verifyPin(nextPin);
+        if (!ok) {
+          setPinError(true);
+          setTimeout(() => {
+            setEnteredPin('');
+            setPinError(false);
+          }, 600);
+        } else {
+          setEnteredPin('');
+        }
       }
     }
   };
@@ -133,7 +167,7 @@ export default function VaultTab() {
         },
       ]}
     >
-      {/* Top Header */}
+      {/* Top Header matching docs/ui design and user spec */}
       <View style={s.header}>
         <Text style={[s.title, { color: colors.ink }]}>Private Vault</Text>
 
@@ -167,7 +201,7 @@ export default function VaultTab() {
       </View>
 
       {!isUnlocked ? (
-        /* Minimalist PIN & Biometric Entry Pad */
+        /* PIN Entry / Onboarding Screen */
         <View style={s.lockedContainer}>
           <View
             style={[
@@ -175,16 +209,37 @@ export default function VaultTab() {
               { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
             ]}
           >
-            <Ionicons name="shield-checkmark" size={32} color={colors.ink} />
+            <Ionicons
+              name={
+                !hasCustomPin
+                  ? setupStep === 'create'
+                    ? 'shield-outline'
+                    : 'shield-checkmark-outline'
+                  : 'shield-checkmark'
+              }
+              size={32}
+              color={colors.ink}
+            />
           </View>
 
-          <Text style={[s.lockedTitle, { color: colors.ink }]}>
-            {pinError ? 'Incorrect PIN' : 'Enter 4-Digit PIN'}
+          <Text style={[s.lockedTitle, { color: pinError ? '#FF3B30' : colors.ink }]}>
+            {!hasCustomPin
+              ? setupStep === 'create'
+                ? 'Create Security PIN'
+                : 'Confirm Security PIN'
+              : pinError
+              ? 'Incorrect PIN'
+              : 'Enter 4-Digit PIN'}
           </Text>
+
           <Text style={[s.lockedSub, { color: colors.inkDim }]}>
-            {hasCustomPin
-              ? 'Enter your security PIN or authenticate with biometrics'
-              : 'Default PIN is 0000 (You can change it once unlocked)'}
+            {!hasCustomPin
+              ? setupStep === 'create'
+                ? 'Choose a 4-digit PIN to secure your hidden photos'
+                : pinError
+                ? 'PINs did not match. Please try again.'
+                : 'Re-enter your 4-digit PIN to confirm'
+              : 'Enter your 4-digit PIN or authenticate with biometrics'}
           </Text>
 
           {/* 4 Dots PIN Display */}
@@ -216,10 +271,13 @@ export default function VaultTab() {
               ['1', '2', '3'],
               ['4', '5', '6'],
               ['7', '8', '9'],
-              ['bio', '0', 'back'],
+              [hasCustomPin ? 'bio' : '', '0', 'back'],
             ].map((row, rIdx) => (
               <View key={rIdx} style={s.keypadRow}>
-                {row.map((item) => {
+                {row.map((item, cIdx) => {
+                  if (item === '') {
+                    return <View key={cIdx} style={s.keypadBtnPlaceholder} />;
+                  }
                   if (item === 'bio') {
                     return (
                       <Pressable
@@ -271,17 +329,18 @@ export default function VaultTab() {
           </View>
         </View>
       ) : (
-        /* Unlocked State */
+        /* Unlocked State — Matching media_1794156067467_042c5f40.jpg */
         <ScrollView
           style={s.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
         >
+          {/* Status Row with Checkmark Banner and + Hide Photos Pill */}
           <View style={s.unlockedBannerRow}>
             <View style={s.unlockedBadge}>
-              <Ionicons name="shield-checkmark" size={15} color="#34C759" />
+              <Ionicons name="checkmark-circle" size={17} color="#34C759" />
               <Text style={[s.unlockedBannerText, { color: colors.inkMid }]}>
-                Vault Unlocked ({vaultItems.length} protected items)
+                Vault Unlocked ({vaultItems.length} protected item{vaultItems.length === 1 ? '' : 's'})
               </Text>
             </View>
 
@@ -301,6 +360,7 @@ export default function VaultTab() {
             </Pressable>
           </View>
 
+          {/* 2-Column Photo Grid matching media_1794156067467_042c5f40.jpg */}
           {vaultItems.length > 0 ? (
             <View style={s.gridContainer}>
               {vaultItems.map((item) => (
@@ -309,18 +369,18 @@ export default function VaultTab() {
                   onPress={() => handleItemPress(item)}
                   style={({ pressed }) => [
                     s.gridCard,
-                    { borderRadius: radius.grid },
                     pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                   ]}
                 >
                   <Image
                     source={{ uri: item.uri }}
-                    style={[s.gridThumb, { borderRadius: radius.grid }]}
+                    style={s.gridThumb}
                     contentFit="cover"
                     transition={150}
                     priority="high"
                     cachePolicy="memory-disk"
                   />
+                  {/* Lock Badge in Upper Right Corner */}
                   <View style={s.vaultBadge}>
                     <Ionicons name="lock-closed" size={11} color="#FFFFFF" />
                   </View>
@@ -658,7 +718,8 @@ const s = StyleSheet.create({
   },
   gridCard: {
     width: ITEM_WIDTH,
-    height: ITEM_WIDTH * 1.35,
+    height: ITEM_WIDTH * 1.3,
+    borderRadius: 20,
     overflow: 'hidden',
     borderCurve: 'continuous',
     position: 'relative',
@@ -667,14 +728,15 @@ const s = StyleSheet.create({
   gridThumb: {
     width: '100%',
     height: '100%',
+    borderRadius: 20,
   },
   vaultBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',

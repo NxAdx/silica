@@ -11,12 +11,12 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  nightMode: 'system',
+  nightMode: 'dark',
   setNightMode: (mode) => set({ nightMode: mode }),
   toggleTheme: () => {
-    const current = get().nightMode;
-    const next = current === 'dark' ? 'light' : 'dark';
-    set({ nightMode: next });
+    set((state) => ({
+      nightMode: state.nightMode === 'dark' ? 'light' : 'dark',
+    }));
   },
 }));
 

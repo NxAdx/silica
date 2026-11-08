@@ -29,7 +29,7 @@ export default function CollectionsTab() {
   const insets = useSafeAreaInsets();
   const { colors, radius, isDark } = useTheme();
 
-  const [filter, setFilter] = useState<'all' | 'folders' | 'favorites' | 'custom'>('all');
+  const [filter, setFilter] = useState<'all' | 'recent' | 'trips' | 'custom'>('all');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
@@ -44,50 +44,20 @@ export default function CollectionsTab() {
   const allTags = useMediaStore((s) => s.allTags);
   const createCollection = useMediaStore((s) => s.createCollection);
 
-  // Favorites collection
-  const favoritesCount = useMemo(
-    () => allMediaItems.filter((i) => i.isFavorite).length,
-    [allMediaItems]
-  );
-  const firstFavoriteCover = useMemo(
-    () => allMediaItems.find((i) => i.isFavorite)?.uri || '',
-    [allMediaItems]
-  );
-
   const displayedCollections = useMemo(() => {
     let list: any[] = [];
 
-    if (filter === 'all' || filter === 'folders') {
-      list = [...list, ...albumCollections];
-    }
-    if (filter === 'all' || filter === 'favorites') {
-      if (favoritesCount > 0) {
-        list.push({
-          id: 'smart-favorites',
-          name: 'Favorites',
-          dateLabel: `${favoritesCount} photos`,
-          count: favoritesCount,
-          storageSize: '',
-          coverUri: firstFavoriteCover,
-          type: 'favorite',
-        });
-      }
-    }
-    if (filter === 'all' || filter === 'custom') {
-      list = [...list, ...customCollections];
-    }
-    if (filter === 'all' && list.length === 0) {
+    if (filter === 'all') {
+      list = [...recentCollections, ...albumCollections, ...customCollections];
+    } else if (filter === 'recent') {
       list = [...recentCollections];
+    } else if (filter === 'trips') {
+      list = [...albumCollections];
+    } else if (filter === 'custom') {
+      list = [...customCollections];
     }
     return list;
-  }, [
-    filter,
-    albumCollections,
-    favoritesCount,
-    firstFavoriteCover,
-    customCollections,
-    recentCollections,
-  ]);
+  }, [filter, albumCollections, customCollections, recentCollections]);
 
   // Live search results
   const searchResults = useMemo(() => {
@@ -273,13 +243,13 @@ export default function CollectionsTab() {
           </View>
         ) : (
           <>
-            {/* Filter Pills */}
+            {/* Filter Pills Matching media_1794156075118_70f05f1b.png */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={s.filterRow}
             >
-              {(['all', 'folders', 'favorites', 'custom'] as const).map((key) => {
+              {(['all', 'recent', 'trips', 'custom'] as const).map((key) => {
                 const isSelected = filter === key;
                 return (
                   <Pressable
@@ -309,9 +279,7 @@ export default function CollectionsTab() {
                         },
                       ]}
                     >
-                      {key === 'folders'
-                        ? 'Folders'
-                        : key.charAt(0).toUpperCase() + key.slice(1)}
+                      {key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1)}
                     </Text>
                   </Pressable>
                 );

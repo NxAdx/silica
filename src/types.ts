@@ -26,6 +26,7 @@ export interface Collection {
   count: number;
   storageSize: string;
   coverUri: string;
+  avatarUri?: string;
   percentage?: string;
   type: 'recent' | 'trips' | 'custom' | 'featured' | 'album' | 'favorite';
   albumId?: string;

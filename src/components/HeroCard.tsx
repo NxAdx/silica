@@ -55,7 +55,7 @@ export function HeroCard({ collection }: HeroCardProps) {
       <View style={s.bottomOverlay}>
         <View style={s.avatarBox}>
           <Image
-            source={{ uri: collection.coverUri }}
+            source={{ uri: collection.avatarUri || collection.coverUri }}
             style={s.avatar}
             contentFit="cover"
           />

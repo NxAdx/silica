@@ -69,9 +69,9 @@ export function GlassPillNav() {
                   s.tabBtn,
                   isActive && {
                     backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.12)'
-                      : 'rgba(0, 0, 0, 0.06)',
-                    borderRadius: 20,
+                      ? 'rgba(255, 255, 255, 0.22)'
+                      : '#111113',
+                    borderRadius: 19,
                   },
                   pressed && { opacity: 0.7, transform: [{ scale: 0.94 }] },
                 ]}
@@ -79,8 +79,8 @@ export function GlassPillNav() {
               >
                 <Ionicons
                   name={isActive ? tab.icon : tab.outlineIcon}
-                  size={21}
-                  color={isActive ? colors.ink : colors.inkDim}
+                  size={20}
+                  color={isActive ? '#FFFFFF' : colors.inkDim}
                 />
               </Pressable>
             );
@@ -115,8 +115,9 @@ const s = StyleSheet.create({
     gap: 30,
   },
   tabBtn: {
-    width: 44,
-    height: 40,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },

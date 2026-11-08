@@ -51,23 +51,42 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: Home + Sort Button (Matching docs/ui design (1).jpg) */}
+        {/* Header: Home + Theme Toggle + Sort Button (Matching docs/ui design (1).jpg) */}
         <View style={s.headerRow}>
-          <Pressable onLongPress={toggleTheme} delayLongPress={500}>
-            <Text style={[s.headerTitle, { color: colors.ink }]}>Home</Text>
-          </Pressable>
+          <Text style={[s.headerTitle, { color: colors.ink }]}>Home</Text>
 
-          <Pressable
-            onPress={handleSortPress}
-            style={({ pressed }) => [
-              s.sortBtn,
-              { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
-              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-            ]}
-            accessibilityLabel="Sort collections"
-          >
-            <Ionicons name="swap-vertical" size={19} color={colors.ink} />
-          </Pressable>
+          <View style={s.headerActions}>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                toggleTheme();
+              }}
+              style={({ pressed }) => [
+                s.sortBtn,
+                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+              ]}
+              accessibilityLabel="Toggle Dark/Light Theme"
+            >
+              <Ionicons
+                name={isDark ? 'sunny-outline' : 'moon-outline'}
+                size={19}
+                color={colors.ink}
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={handleSortPress}
+              style={({ pressed }) => [
+                s.sortBtn,
+                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+              ]}
+              accessibilityLabel="Sort collections"
+            >
+              <Ionicons name="swap-vertical" size={19} color={colors.ink} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Permission Request Banner if permission is not yet granted */}
@@ -198,15 +217,15 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Albums / Folders Section (Real Device Folders: Camera, Screenshots, etc.) */}
+        {/* Trips / Folders Section (Matching docs/ui design (1).jpg) */}
         {albums.length > 0 && (
           <>
             <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: colors.ink }]}>Albums</Text>
+              <Text style={[s.sectionTitle, { color: colors.ink }]}>Trips</Text>
               <Pressable
                 onPress={() => router.push('/collections')}
                 style={s.countRow}
-                accessibilityLabel="View all albums"
+                accessibilityLabel="View all trips"
               >
                 <Text style={[s.countText, { color: colors.inkDim }]}>
                   {albums.length}
@@ -405,6 +424,11 @@ const s = StyleSheet.create({
     fontSize: 34,
     fontWeight: '800',
     letterSpacing: -0.8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   sortBtn: {
     width: 40,

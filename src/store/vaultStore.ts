@@ -63,9 +63,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   verifyPin: async (inputPin: string) => {
     try {
       const stored = await SecureStore.getItemAsync(VAULT_PIN_KEY);
-      // Default initial PIN is 0000 if none is set
-      const targetPin = stored || '0000';
-      if (inputPin === targetPin) {
+      if (!stored) {
+        // No PIN has been configured yet
+        return false;
+      }
+      if (inputPin === stored) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         set({ isUnlocked: true });
         await get().loadVaultItems();

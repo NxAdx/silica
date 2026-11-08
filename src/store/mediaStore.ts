@@ -45,8 +45,18 @@ function getDb(): SQLite.SQLiteDatabase {
   return dbInstance;
 }
 
-export function formatDateLabel(timestamp: number): string {
-  const date = new Date(timestamp);
+export function formatDateLabel(rawTimestamp: number): string {
+  let ts = rawTimestamp;
+  if (!ts || ts <= 0) {
+    ts = Date.now();
+  } else if (ts < 10000000000) {
+    // MediaStore timestamp in seconds
+    ts = ts * 1000;
+  }
+  const date = new Date(ts);
+  if (date.getFullYear() < 2000) {
+    return 'Recent';
+  }
   const now = new Date();
 
   const isToday =
@@ -262,6 +272,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
           count: groupItems.length,
           storageSize: formatBytes(groupBytes),
           coverUri: groupItems[0]?.uri || '',
+          avatarUri: groupItems.length > 1 ? groupItems[1]?.uri : groupItems[0]?.uri,
           percentage: pct,
           type: 'recent',
         });
