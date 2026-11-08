@@ -1,4 +1,4 @@
-// Silica — Screen 2: Collection Detail View with Clean ✨ Engine
+// Silica — Screen 2: Collection Detail View with Clean Engine
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -380,7 +380,7 @@ export default function CollectionDetailScreen() {
         </View>
       )}
 
-      {/* Clean ✨ Interactive Smart Cleaner Modal */}
+      {/* Clean Interactive Storage Cleaner Modal */}
       <Modal
         visible={showCleanModal}
         transparent
