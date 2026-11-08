@@ -1,4 +1,4 @@
-// Silica — Screen 1: Home Discovery View
+// Silica — Screen 1: Home Discovery View (100% Real Device Photos & Zero Dummy Images)
 import React, { useState } from 'react';
 import {
   View,
@@ -24,20 +24,18 @@ export default function HomeScreen() {
 
   const [showSortModal, setShowSortModal] = useState(false);
 
+  const hasPermission = useMediaStore((s) => s.hasPermission);
+  const requestPermission = useMediaStore((s) => s.requestPermission);
   const featured = useMediaStore((s) => s.featuredCollections);
   const recent = useMediaStore((s) => s.recentCollections);
-  const trips = useMediaStore((s) => s.tripCollections);
+  const albums = useMediaStore((s) => s.albumCollections);
+  const recentItems = useMediaStore((s) => s.recentItems);
   const sortOrder = useMediaStore((s) => s.sortOrder);
   const setSortOrder = useMediaStore((s) => s.setSortOrder);
 
   const handleSortPress = () => {
     Haptics.selectionAsync();
     setShowSortModal(true);
-  };
-
-  const handleThemeToggle = () => {
-    Haptics.selectionAsync();
-    toggleTheme();
   };
 
   return (
@@ -48,152 +46,216 @@ export default function HomeScreen() {
           s.content,
           {
             paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 20) + 84,
+            paddingBottom: Math.max(insets.bottom, 20) + 96,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: Home + Theme Toggle + Sort Button */}
+        {/* Header: Home + Sort Button (Matching docs/ui design (1).jpg) */}
         <View style={s.headerRow}>
-          <Text style={[s.headerTitle, { color: colors.ink }]}>Home</Text>
+          <Pressable onLongPress={toggleTheme} delayLongPress={500}>
+            <Text style={[s.headerTitle, { color: colors.ink }]}>Home</Text>
+          </Pressable>
 
-          <View style={s.headerActions}>
-            {/* Theme Toggle Pill */}
-            <Pressable
-              onPress={handleThemeToggle}
-              style={({ pressed }) => [
-                s.actionBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
-                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-              ]}
-              accessibilityLabel="Toggle Theme"
-            >
-              <Ionicons
-                name={isDark ? 'sunny' : 'moon'}
-                size={18}
-                color={colors.ink}
-              />
-            </Pressable>
+          <Pressable
+            onPress={handleSortPress}
+            style={({ pressed }) => [
+              s.sortBtn,
+              { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+            ]}
+            accessibilityLabel="Sort collections"
+          >
+            <Ionicons name="swap-vertical" size={19} color={colors.ink} />
+          </Pressable>
+        </View>
 
-            {/* Sort Button */}
+        {/* Permission Request Banner if permission is not yet granted */}
+        {!hasPermission && (
+          <View
+            style={[
+              s.permissionCard,
+              {
+                backgroundColor: isDark ? '#1C1C1E' : '#F6F6F8',
+                borderRadius: radius.hero,
+                borderColor: colors.stroke,
+              },
+            ]}
+          >
+            <Ionicons
+              name="images-outline"
+              size={36}
+              color={colors.ink}
+              style={{ marginBottom: 10 }}
+            />
+            <Text style={[s.permissionTitle, { color: colors.ink }]}>
+              Access Your Device Photos
+            </Text>
+            <Text style={[s.permissionSub, { color: colors.inkDim }]}>
+              Silica works 100% offline with zero cloud uploads or telemetry. Grant photo permission to organize your personal gallery.
+            </Text>
             <Pressable
-              onPress={handleSortPress}
+              onPress={() => requestPermission()}
               style={({ pressed }) => [
-                s.actionBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
-                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                s.grantBtn,
+                {
+                  backgroundColor: colors.ink,
+                  borderRadius: radius.pill,
+                },
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
               ]}
-              accessibilityLabel="Sort collections"
             >
-              <Ionicons name="swap-vertical" size={19} color={colors.ink} />
+              <Text style={[s.grantBtnText, { color: colors.bg }]}>
+                Grant Permission
+              </Text>
             </Pressable>
           </View>
-        </View>
+        )}
 
-        {/* Dual Hero Cards (Screen 1 Visual Requirement) */}
-        <View style={s.heroRow}>
-          {featured.slice(0, 2).map((col) => (
-            <HeroCard key={col.id} collection={col} />
-          ))}
-        </View>
-
-        {/* Recent Section */}
-        <View style={s.sectionHeader}>
-          <Text style={[s.sectionTitle, { color: colors.ink }]}>Recent</Text>
-          <Pressable
-            onPress={() => router.push('/collections')}
-            style={s.countRow}
-            accessibilityLabel="View all recent"
+        {/* Dual Hero Cards from Real Device Photos */}
+        {featured.length > 0 ? (
+          <View style={s.heroRow}>
+            {featured.slice(0, 2).map((col) => (
+              <HeroCard key={col.id} collection={col} />
+            ))}
+          </View>
+        ) : hasPermission && recentItems.length === 0 ? (
+          <View
+            style={[
+              s.emptyHero,
+              {
+                backgroundColor: isDark ? '#141416' : '#F6F6F8',
+                borderRadius: radius.hero,
+              },
+            ]}
           >
-            <Text style={[s.countText, { color: colors.inkDim }]}>146</Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.inkDim} />
-          </Pressable>
-        </View>
+            <Ionicons name="camera-outline" size={32} color={colors.inkDim} />
+            <Text style={[s.emptyHeroTitle, { color: colors.ink }]}>
+              No Photos Found
+            </Text>
+            <Text style={[s.emptyHeroSub, { color: colors.inkDim }]}>
+              Photos and albums stored on your device will automatically show up here.
+            </Text>
+          </View>
+        ) : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.horizontalList}
-        >
-          {recent.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => router.push(`/collection/${item.id}`)}
-              style={({ pressed }) => [
-                s.recentCard,
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
+        {/* Recent Section (Real Date-Grouped Photos) */}
+        {recent.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={[s.sectionTitle, { color: colors.ink }]}>Recent</Text>
+              <Pressable
+                onPress={() => router.push('/collections')}
+                style={s.countRow}
+                accessibilityLabel="View all recent"
+              >
+                <Text style={[s.countText, { color: colors.inkDim }]}>
+                  {recentItems.length}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={15}
+                  color={colors.inkDim}
+                />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.horizontalList}
             >
-              <Image
-                source={{ uri: item.coverUri }}
-                style={[s.recentThumb, { borderRadius: radius.grid }]}
-                contentFit="cover"
-                transition={200}
-              />
-              <Text
-                style={[s.recentDate, { color: colors.ink }]}
-                numberOfLines={1}
-              >
-                {item.dateLabel}
-              </Text>
-              <Text
-                style={[s.recentMeta, { color: colors.inkDim }]}
-                numberOfLines={1}
-              >
-                {item.count} • {item.storageSize}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+              {recent.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/collection/${item.id}`)}
+                  style={({ pressed }) => [
+                    s.recentCard,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: item.coverUri }}
+                    style={[s.recentThumb, { borderRadius: radius.grid }]}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                  <Text
+                    style={[s.recentDate, { color: colors.ink }]}
+                    numberOfLines={1}
+                  >
+                    {item.dateLabel}
+                  </Text>
+                  <Text
+                    style={[s.recentMeta, { color: colors.inkDim }]}
+                    numberOfLines={1}
+                  >
+                    {item.count} • {item.storageSize}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
 
-        {/* Trips Section */}
-        <View style={s.sectionHeader}>
-          <Text style={[s.sectionTitle, { color: colors.ink }]}>Trips</Text>
-          <Pressable
-            onPress={() => router.push('/collections')}
-            style={s.countRow}
-            accessibilityLabel="View all trips"
-          >
-            <Text style={[s.countText, { color: colors.inkDim }]}>562</Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.inkDim} />
-          </Pressable>
-        </View>
+        {/* Albums / Folders Section (Real Device Folders: Camera, Screenshots, etc.) */}
+        {albums.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={[s.sectionTitle, { color: colors.ink }]}>Albums</Text>
+              <Pressable
+                onPress={() => router.push('/collections')}
+                style={s.countRow}
+                accessibilityLabel="View all albums"
+              >
+                <Text style={[s.countText, { color: colors.inkDim }]}>
+                  {albums.length}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={15}
+                  color={colors.inkDim}
+                />
+              </Pressable>
+            </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.horizontalList}
-        >
-          {trips.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => router.push(`/collection/${item.id}`)}
-              style={({ pressed }) => [
-                s.recentCard,
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.horizontalList}
             >
-              <Image
-                source={{ uri: item.coverUri }}
-                style={[s.recentThumb, { borderRadius: radius.grid }]}
-                contentFit="cover"
-                transition={200}
-              />
-              <Text
-                style={[s.recentDate, { color: colors.ink }]}
-                numberOfLines={1}
-              >
-                {item.name}
-              </Text>
-              <Text
-                style={[s.recentMeta, { color: colors.inkDim }]}
-                numberOfLines={1}
-              >
-                {item.count} • {item.storageSize}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+              {albums.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/collection/${item.id}`)}
+                  style={({ pressed }) => [
+                    s.recentCard,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: item.coverUri }}
+                    style={[s.recentThumb, { borderRadius: radius.grid }]}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                  <Text
+                    style={[s.recentDate, { color: colors.ink }]}
+                    numberOfLines={1}
+                  >
+                    {item.name}
+                  </Text>
+                  <Text
+                    style={[s.recentMeta, { color: colors.inkDim }]}
+                    numberOfLines={1}
+                  >
+                    {item.count} • {item.storageSize}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
       </ScrollView>
 
       {/* Sort Order Selector Modal */}
@@ -291,6 +353,30 @@ export default function HomeScreen() {
                 <Ionicons name="checkmark" size={18} color={colors.ink} />
               )}
             </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setSortOrder('name_asc');
+                setShowSortModal(false);
+              }}
+              style={s.sortOption}
+            >
+              <Text
+                style={[
+                  s.sortOptionText,
+                  {
+                    color:
+                      sortOrder === 'name_asc' ? colors.ink : colors.inkDim,
+                    fontWeight: sortOrder === 'name_asc' ? '700' : '500',
+                  },
+                ]}
+              >
+                Name (A to Z)
+              </Text>
+              {sortOrder === 'name_asc' && (
+                <Ionicons name="checkmark" size={18} color={colors.ink} />
+              )}
+            </Pressable>
           </View>
         </Pressable>
       </Modal>
@@ -320,18 +406,60 @@ const s = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.8,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  actionBtn: {
+  sortBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderCurve: 'continuous',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  permissionCard: {
+    padding: 24,
+    borderWidth: 1,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  permissionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  grantBtn: {
+    height: 46,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderCurve: 'continuous',
+  },
+  grantBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyHero: {
+    padding: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+    borderCurve: 'continuous',
+  },
+  emptyHeroTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  emptyHeroSub: {
+    fontSize: 12,
+    textAlign: 'center',
   },
   heroRow: {
     flexDirection: 'row',

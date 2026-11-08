@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../../store/themeStore';
-import { useMediaStore } from '../../store/mediaStore';
+import { useMediaStore, formatDateLabel } from '../../store/mediaStore';
 import { useVaultStore } from '../../store/vaultStore';
 import {
   analyzeMediaForCleanup,
@@ -43,21 +43,45 @@ export default function CollectionDetailScreen() {
 
   const featured = useMediaStore((s) => s.featuredCollections);
   const recent = useMediaStore((s) => s.recentCollections);
-  const trips = useMediaStore((s) => s.tripCollections);
   const custom = useMediaStore((s) => s.customCollections);
+  const albumCollections = useMediaStore((s) => s.albumCollections);
   const allMediaItems = useMediaStore((s) => s.recentItems);
+  const getCollectionItems = useMediaStore((s) => s.getCollectionItems);
   const deleteMediaItems = useMediaStore((s) => s.deleteMediaItems);
   const setSortOrder = useMediaStore((s) => s.setSortOrder);
   const sortOrder = useMediaStore((s) => s.sortOrder);
   const addToVault = useVaultStore((s) => s.addToVault);
 
-  const collection =
-    [...featured, ...recent, ...trips, ...custom].find((c) => c.id === id) ||
-    featured[0];
+  const collectionItems = getCollectionItems(id || '');
+  const displayItems = collectionItems.length > 0 ? collectionItems : allMediaItems;
+
+  let collection = [...featured, ...recent, ...custom, ...albumCollections].find((c) => c.id === id);
+  if (!collection && id === 'favorites') {
+    collection = {
+      id: 'favorites',
+      name: 'Favorites',
+      dateLabel: 'Favorites',
+      count: displayItems.length,
+      storageSize: `${Math.round(displayItems.length * 2.5)} MB`,
+      coverUri: displayItems[0]?.uri || '',
+      type: 'custom',
+    };
+  }
+  if (!collection) {
+    collection = {
+      id: id || 'collection',
+      name: 'Collection',
+      dateLabel: displayItems[0] ? formatDateLabel(displayItems[0].creationTime) : 'Collection',
+      count: displayItems.length,
+      storageSize: `${Math.round(displayItems.length * 2.5)} MB`,
+      coverUri: displayItems[0]?.uri || '',
+      type: 'recent',
+    };
+  }
 
   const handleCleanScan = () => {
     Haptics.selectionAsync();
-    const result = analyzeMediaForCleanup(allMediaItems);
+    const result = analyzeMediaForCleanup(displayItems);
     setCleanResult(result);
     setShowCleanModal(true);
   };
@@ -74,7 +98,7 @@ export default function CollectionDetailScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowCleanModal(false);
     Alert.alert(
-      'Clean Complete ✨',
+      'Clean Complete',
       `Freed ${cleanResult.formattedTotalRecoverable} by deleting ${duplicateIdsToDelete.length} redundant duplicate shots.`
     );
   };
@@ -135,16 +159,17 @@ export default function CollectionDetailScreen() {
       <ScrollView
         style={s.scrollView}
         contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 72),
+          paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 32),
         }}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Header with Smooth Vignette Fade */}
-        <View style={s.heroWrapper}>
+        <View style={[s.heroWrapper, { backgroundColor: isDark ? '#1C1C1E' : '#E5E5EA' }]}>
           <Image
-            source={{ uri: collection.coverUri }}
+            source={{ uri: collection.coverUri || displayItems[0]?.uri }}
             style={s.heroImage}
             contentFit="cover"
+            priority="high"
           />
 
           {/* Vignette Gradient Overlay at Bottom */}
@@ -225,10 +250,10 @@ export default function CollectionDetailScreen() {
           </View>
         </View>
 
-        {/* Collection Title & The Signature Clean ✨ Pill */}
+        {/* Collection Title & The Signature Clean Pill */}
         <View style={s.metaSection}>
           <Text style={[s.dateTitle, { color: colors.ink }]}>
-            {collection.dateLabel}
+            {collection.name || collection.dateLabel}
           </Text>
 
           <Pressable
@@ -242,23 +267,23 @@ export default function CollectionDetailScreen() {
               pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
             ]}
           >
-            <Text style={[s.cleanText, { color: colors.ink }]}>Clean ✨</Text>
+            <Text style={[s.cleanText, { color: colors.ink }]}>Clean</Text>
           </Pressable>
         </View>
 
-        {/* All Images Section Header with 1.256 count */}
+        {/* All Images Section Header with dynamic count */}
         <View style={s.allImagesHeader}>
           <Text style={[s.allImagesTitle, { color: colors.ink }]}>
             All Images
           </Text>
           <Text style={[s.allImagesCount, { color: colors.inkDim }]}>
-            1.256
+            {displayItems.length}
           </Text>
         </View>
 
         {/* 3-Column Squircle Photo Grid */}
         <View style={s.gridContainer}>
-          {allMediaItems.map((item, idx) => {
+          {displayItems.map((item, idx) => {
             const isSelected = selectedIds.has(item.id);
             return (
               <Pressable
@@ -281,6 +306,8 @@ export default function CollectionDetailScreen() {
                   style={[s.gridThumb, { borderRadius: radius.grid }]}
                   contentFit="cover"
                   transition={150}
+                  priority="high"
+                  cachePolicy="memory-disk"
                 />
 
                 {/* Selection Checkmark Badge */}
@@ -376,10 +403,10 @@ export default function CollectionDetailScreen() {
             <View style={s.cleanHeader}>
               <View>
                 <Text style={[s.cleanTitle, { color: colors.ink }]}>
-                  Smart Clean ✨
+                  Storage Clean
                 </Text>
                 <Text style={[s.cleanSub, { color: colors.inkDim }]}>
-                  Scanned 1,256 photos offline
+                  Scanned {displayItems.length} photos offline
                 </Text>
               </View>
               <Pressable onPress={() => setShowCleanModal(false)}>

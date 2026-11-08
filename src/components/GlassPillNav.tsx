@@ -1,3 +1,4 @@
+// Silica — Apple WWDC Liquid Glass Floating Navigation Capsule
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -11,8 +12,16 @@ export function GlassPillNav() {
   const pathname = usePathname();
   const { colors, radius, shadow, isDark } = useTheme();
 
-  // Hide floating capsule inside fullscreen photo viewer
-  if (pathname.includes('/viewer')) {
+  // Strictly only show on primary tabs: Home, Collections, Vault
+  const isTabScreen =
+    pathname === '/' ||
+    pathname === '/(tabs)' ||
+    pathname === '/collections' ||
+    pathname === '/(tabs)/collections' ||
+    pathname === '/vault' ||
+    pathname === '/(tabs)/vault';
+
+  if (!isTabScreen) {
     return null;
   }
 
@@ -30,13 +39,18 @@ export function GlassPillNav() {
   return (
     <View style={s.outerContainer} pointerEvents="box-none">
       <BlurView
-        intensity={isDark ? 65 : 85}
+        intensity={isDark ? 55 : 80}
         tint={isDark ? 'dark' : 'light'}
         style={[
           s.capsule,
           {
             borderRadius: radius.pill,
-            borderColor: colors.strokeGlass,
+            backgroundColor: isDark
+              ? 'rgba(20, 20, 24, 0.78)'
+              : 'rgba(255, 255, 255, 0.85)',
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.12)'
+              : 'rgba(0, 0, 0, 0.08)',
             ...shadow.liquidGlass,
           },
         ]}
@@ -45,7 +59,8 @@ export function GlassPillNav() {
           {tabs.map((tab) => {
             const isActive =
               pathname === tab.route ||
-              (tab.route === '/' && (pathname === '/(tabs)' || pathname === ''));
+              (tab.route === '/' && pathname === '/(tabs)');
+
             return (
               <Pressable
                 key={tab.name}
@@ -56,9 +71,9 @@ export function GlassPillNav() {
                     backgroundColor: isDark
                       ? 'rgba(255, 255, 255, 0.12)'
                       : 'rgba(0, 0, 0, 0.06)',
-                    borderRadius: 18,
+                    borderRadius: 20,
                   },
-                  pressed && { opacity: 0.7, transform: [{ scale: 0.92 }] },
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.94 }] },
                 ]}
                 accessibilityLabel={tab.name}
               >
@@ -88,7 +103,7 @@ const s = StyleSheet.create({
   capsule: {
     height: 54,
     paddingHorizontal: 22,
-    borderWidth: 1,
+    borderWidth: 0.8,
     borderCurve: 'continuous',
     overflow: 'hidden',
     justifyContent: 'center',
@@ -97,11 +112,11 @@ const s = StyleSheet.create({
   innerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 28,
+    gap: 30,
   },
   tabBtn: {
-    width: 40,
-    height: 38,
+    width: 44,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

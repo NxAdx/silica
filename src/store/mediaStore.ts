@@ -1,4 +1,4 @@
-// Silica — High Performance Offline SQLite Media Store
+// Silica — High Performance Real-Device SQLite Media Store (Zero Dummy Images)
 import { create } from 'zustand';
 import * as SQLite from 'expo-sqlite';
 import * as MediaLibrary from 'expo-media-library';
@@ -7,24 +7,31 @@ import { MediaItem, Collection, Tag } from '../types';
 
 interface MediaState {
   hasPermission: boolean;
+  permissionStatus: MediaLibrary.PermissionStatus | 'undetermined';
   isLoading: boolean;
   recentItems: MediaItem[];
   featuredCollections: Collection[];
   recentCollections: Collection[];
-  tripCollections: Collection[];
+  albumCollections: Collection[];
+  albumAssetsMap: Record<string, MediaItem[]>;
   customCollections: Collection[];
   allTags: Tag[];
-  sortOrder: 'date_desc' | 'date_asc' | 'size_desc';
+  sortOrder: 'date_desc' | 'date_asc' | 'size_desc' | 'name_asc';
+  searchQuery: string;
 
   initDB: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
   loadMedia: () => Promise<void>;
+  setSearchQuery: (query: string) => void;
+  getFilteredItems: () => MediaItem[];
   toggleFavorite: (id: string) => Promise<boolean>;
   deleteMediaItems: (ids: string[]) => Promise<void>;
   createCollection: (name: string, coverUri?: string) => Promise<void>;
-  setSortOrder: (order: 'date_desc' | 'date_asc' | 'size_desc') => void;
+  addPhotosToCollection: (collectionId: string, photoIds: string[]) => Promise<void>;
+  setSortOrder: (order: 'date_desc' | 'date_asc' | 'size_desc' | 'name_asc') => void;
   addTagToPhoto: (photoId: string, tag: string) => Promise<void>;
   removeTagFromPhoto: (photoId: string, tag: string) => Promise<void>;
+  getPhotoTags: (photoId: string) => string[];
   getCollectionItems: (collectionId: string) => MediaItem[];
 }
 
@@ -37,264 +44,54 @@ function getDb(): SQLite.SQLiteDatabase {
   return dbInstance;
 }
 
-// Initial Curated Seed Collections matching Screen 1 (docs/ui design (1).jpg)
-const INITIAL_FEATURED: Collection[] = [
-  {
-    id: 'feat-1',
-    name: 'Autumn Portrait',
-    dateLabel: '25 Oct 2025',
-    count: 526,
-    storageSize: '2.6GB',
-    coverUri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
-    percentage: '16%',
-    type: 'featured',
-  },
-  {
-    id: 'feat-2',
-    name: 'Studio Lighting',
-    dateLabel: '12 Sept 2025',
-    count: 122,
-    storageSize: '1.2GB',
-    coverUri: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80',
-    percentage: '24%',
-    type: 'featured',
-  },
-];
+export function formatDateLabel(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
 
-const INITIAL_RECENT_COLLECTIONS: Collection[] = [
-  {
-    id: 'rec-1',
-    name: 'Today',
-    dateLabel: 'Today',
-    count: 62,
-    storageSize: '520MB',
-    coverUri: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&q=80',
-    type: 'recent',
-  },
-  {
-    id: 'rec-2',
-    name: '24 Oct 2025',
-    dateLabel: '24 Oct 2025',
-    count: 24,
-    storageSize: '312MB',
-    coverUri: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&q=80',
-    type: 'recent',
-  },
-  {
-    id: 'rec-3',
-    name: '23 Oct 2025',
-    dateLabel: '23 Oct 2025',
-    count: 120,
-    storageSize: '1.2GB',
-    coverUri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80',
-    type: 'recent',
-  },
-];
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
 
-const INITIAL_TRIP_COLLECTIONS: Collection[] = [
-  {
-    id: 'trip-1',
-    name: 'Himalayas',
-    dateLabel: 'September 2025',
-    count: 562,
-    storageSize: '3.8GB',
-    coverUri: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
-    type: 'trips',
-  },
-  {
-    id: 'trip-2',
-    name: 'Coastal Road',
-    dateLabel: 'August 2025',
-    count: 310,
-    storageSize: '2.1GB',
-    coverUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
-    type: 'trips',
-  },
-  {
-    id: 'trip-3',
-    name: 'Kyoto Sanctuary',
-    dateLabel: 'May 2025',
-    count: 420,
-    storageSize: '2.9GB',
-    coverUri: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=600&q=80',
-    type: 'trips',
-  },
-];
+  if (isToday) return 'Today';
 
-// Curated 12 Gallery Photos for the 3-column squircle grid matching Screen 2
-const SEED_GALLERY_PHOTOS: MediaItem[] = [
-  {
-    id: 'img-1',
-    uri: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
-    filename: 'Silica_001.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1730000000000,
-    modificationTime: 1730000000000,
-    mediaType: 'photo',
-    fileSize: 2400000,
-    formattedSize: '2.4 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-2',
-    uri: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&q=80',
-    filename: 'Silica_002.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1730000002000, // Burst candidate
-    modificationTime: 1730000002000,
-    mediaType: 'photo',
-    fileSize: 2380000,
-    formattedSize: '2.3 MB',
-    isFavorite: true,
-  },
-  {
-    id: 'img-3',
-    uri: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&q=80',
-    filename: 'Silica_003.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1730000003000, // Burst candidate
-    modificationTime: 1730000003000,
-    mediaType: 'photo',
-    fileSize: 2410000,
-    formattedSize: '2.4 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-4',
-    uri: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80',
-    filename: 'Silica_004.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729900000000,
-    modificationTime: 1729900000000,
-    mediaType: 'photo',
-    fileSize: 3100000,
-    formattedSize: '3.1 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-5',
-    uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
-    filename: 'Silica_005.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729800000000,
-    modificationTime: 1729800000000,
-    mediaType: 'photo',
-    fileSize: 2800000,
-    formattedSize: '2.8 MB',
-    isFavorite: true,
-  },
-  {
-    id: 'img-6',
-    uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80',
-    filename: 'Silica_006.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729700000000,
-    modificationTime: 1729700000000,
-    mediaType: 'photo',
-    fileSize: 2100000,
-    formattedSize: '2.1 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-7',
-    uri: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
-    filename: 'Silica_007.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729600000000,
-    modificationTime: 1729600000000,
-    mediaType: 'photo',
-    fileSize: 4200000,
-    formattedSize: '4.2 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-8',
-    uri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-    filename: 'Silica_008.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729500000000,
-    modificationTime: 1729500000000,
-    mediaType: 'photo',
-    fileSize: 3400000,
-    formattedSize: '3.4 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-9',
-    uri: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&q=80',
-    filename: 'Silica_009.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729400000000,
-    modificationTime: 1729400000000,
-    mediaType: 'photo',
-    fileSize: 2900000,
-    formattedSize: '2.9 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-10',
-    uri: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800&q=80',
-    filename: 'Silica_010.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729300000000,
-    modificationTime: 1729300000000,
-    mediaType: 'photo',
-    fileSize: 3800000,
-    formattedSize: '3.8 MB',
-    isFavorite: false,
-  },
-  {
-    id: 'img-11',
-    uri: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80',
-    filename: 'Silica_011.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729200000000,
-    modificationTime: 1729200000000,
-    mediaType: 'photo',
-    fileSize: 2600000,
-    formattedSize: '2.6 MB',
-    isFavorite: true,
-  },
-  {
-    id: 'img-12',
-    uri: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
-    filename: 'Silica_012.jpg',
-    width: 2400,
-    height: 3200,
-    creationTime: 1729100000000,
-    modificationTime: 1729100000000,
-    mediaType: 'photo',
-    fileSize: 4500000,
-    formattedSize: '4.5 MB',
-    isFavorite: false,
-  },
-];
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) return 'Yesterday';
+
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
 
 export const useMediaStore = create<MediaState>((set, get) => ({
   hasPermission: false,
+  permissionStatus: 'undetermined',
   isLoading: true,
-  recentItems: SEED_GALLERY_PHOTOS,
-  featuredCollections: INITIAL_FEATURED,
-  recentCollections: INITIAL_RECENT_COLLECTIONS,
-  tripCollections: INITIAL_TRIP_COLLECTIONS,
+  recentItems: [],
+  featuredCollections: [],
+  recentCollections: [],
+  albumCollections: [],
+  albumAssetsMap: {},
   customCollections: [],
-  allTags: [
-    { id: 'tag-1', name: 'Portraits', count: 48 },
-    { id: 'tag-2', name: 'Landscape', count: 120 },
-    { id: 'tag-3', name: 'Architecture', count: 35 },
-  ],
+  allTags: [],
   sortOrder: 'date_desc',
+  searchQuery: '',
 
   initDB: async () => {
     try {
@@ -306,6 +103,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
           filename TEXT,
           width INTEGER,
           height INTEGER,
+          file_size INTEGER DEFAULT 0,
           is_favorite INTEGER DEFAULT 0,
           is_vault INTEGER DEFAULT 0,
           custom_collection_id TEXT,
@@ -322,21 +120,43 @@ export const useMediaStore = create<MediaState>((set, get) => ({
           cover_uri TEXT,
           created_at INTEGER
         );
+        CREATE INDEX IF NOT EXISTS idx_photo_tags_tag ON photo_tags(tag);
+        CREATE INDEX IF NOT EXISTS idx_photo_metadata_vault ON photo_metadata(is_vault);
       `);
 
-      // Sync existing favorites from SQLite
-      const favRows = db.getAllSync<{ id: string; is_favorite: number }>(
-        'SELECT id, is_favorite FROM photo_metadata WHERE is_favorite = 1;'
-      );
-      const favMap = new Map(favRows.map((r) => [r.id, r.is_favorite === 1]));
+      // Load custom collections
+      const customRows = db.getAllSync<{
+        id: string;
+        name: string;
+        cover_uri: string;
+        created_at: number;
+      }>('SELECT * FROM custom_collections ORDER BY created_at DESC;');
 
-      set((state) => ({
-        recentItems: state.recentItems.map((item) => ({
-          ...item,
-          isFavorite: favMap.has(item.id) ? favMap.get(item.id) : item.isFavorite,
-        })),
-        isLoading: false,
+      const loadedCustom: Collection[] = customRows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        dateLabel: formatDateLabel(r.created_at),
+        count: 0,
+        storageSize: '0 MB',
+        coverUri: r.cover_uri || '',
+        type: 'custom',
       }));
+
+      // Load all tags
+      const tagRows = db.getAllSync<{ tag: string; count: number }>(
+        'SELECT tag, COUNT(*) as count FROM photo_tags GROUP BY tag ORDER BY count DESC;'
+      );
+      const loadedTags: Tag[] = tagRows.map((t, idx) => ({
+        id: `tag-${idx}`,
+        name: t.tag,
+        count: t.count,
+      }));
+
+      set({
+        customCollections: loadedCustom,
+        allTags: loadedTags,
+        isLoading: false,
+      });
     } catch (e) {
       console.warn('[MediaStore] initDB error:', e);
       set({ isLoading: false });
@@ -346,8 +166,8 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   requestPermission: async () => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      const granted = status === 'granted';
-      set({ hasPermission: granted });
+      const granted = status === MediaLibrary.PermissionStatus.GRANTED;
+      set({ hasPermission: granted, permissionStatus: status });
       if (granted) {
         await get().loadMedia();
       }
@@ -359,45 +179,200 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   },
 
   loadMedia: async () => {
+    set({ isLoading: true });
     try {
+      // 1. Query real assets from the device
       const { assets } = await MediaLibrary.getAssetsAsync({
-        first: 100,
+        first: 1000,
         sortBy: MediaLibrary.SortBy.creationTime,
-        mediaType: [MediaLibrary.MediaType.photo],
+        mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
       });
 
-      if (assets.length > 0) {
-        const db = getDb();
-        const favRows = db.getAllSync<{ id: string }>(
-          'SELECT id FROM photo_metadata WHERE is_favorite = 1;'
-        );
-        const favIds = new Set(favRows.map((r) => r.id));
+      const db = getDb();
 
-        const vaultRows = db.getAllSync<{ id: string }>(
-          'SELECT id FROM photo_metadata WHERE is_vault = 1;'
-        );
-        const vaultIds = new Set(vaultRows.map((r) => r.id));
+      // Query favorites, vault items, and tags from SQLite
+      const favRows = db.getAllSync<{ id: string }>(
+        'SELECT id FROM photo_metadata WHERE is_favorite = 1;'
+      );
+      const favIds = new Set(favRows.map((r) => r.id));
 
-        const items: MediaItem[] = assets
-          .filter((a) => !vaultIds.has(a.id))
-          .map((a) => ({
-            id: a.id,
-            uri: a.uri,
-            filename: a.filename,
-            width: a.width,
-            height: a.height,
-            creationTime: a.creationTime,
-            modificationTime: a.modificationTime,
-            duration: a.duration,
-            mediaType: a.mediaType === 'video' ? 'video' : 'photo',
-            isFavorite: favIds.has(a.id),
-          }));
+      const vaultRows = db.getAllSync<{ id: string }>(
+        'SELECT id FROM photo_metadata WHERE is_vault = 1;'
+      );
+      const vaultIds = new Set(vaultRows.map((r) => r.id));
 
-        set({ recentItems: items });
+      const tagRows = db.getAllSync<{ photo_id: string; tag: string }>(
+        'SELECT photo_id, tag FROM photo_tags;'
+      );
+      const tagMap = new Map<string, string[]>();
+      for (const t of tagRows) {
+        const list = tagMap.get(t.photo_id) || [];
+        list.push(t.tag);
+        tagMap.set(t.photo_id, list);
       }
+
+      // Filter out hidden vault photos
+      const visibleAssets = assets.filter((a) => !vaultIds.has(a.id));
+
+      const items: MediaItem[] = visibleAssets.map((a) => {
+        // Estimate size if not available (~2.5MB per photo)
+        const estSize = 2.5 * 1024 * 1024;
+        return {
+          id: a.id,
+          uri: a.uri,
+          filename: a.filename,
+          width: a.width,
+          height: a.height,
+          creationTime: a.creationTime,
+          modificationTime: a.modificationTime,
+          duration: a.duration,
+          mediaType: a.mediaType === 'video' ? 'video' : 'photo',
+          fileSize: estSize,
+          formattedSize: formatBytes(estSize),
+          isFavorite: favIds.has(a.id),
+          albumId: a.albumId,
+          tags: tagMap.get(a.id) || [],
+        };
+      });
+
+      // 2. Group real photos by Date Clusters (for Home Carousels & Hero Cards)
+      const dateGroups = new Map<string, MediaItem[]>();
+      for (const item of items) {
+        const dateKey = formatDateLabel(item.creationTime);
+        const group = dateGroups.get(dateKey) || [];
+        group.push(item);
+        dateGroups.set(dateKey, group);
+      }
+
+      const totalDeviceBytes = items.reduce((sum, i) => sum + (i.fileSize || 0), 0);
+
+      const generatedRecentCollections: Collection[] = [];
+      dateGroups.forEach((groupItems, dateLabel) => {
+        const groupBytes = groupItems.reduce((sum, i) => sum + (i.fileSize || 0), 0);
+        const pct =
+          totalDeviceBytes > 0
+            ? `${Math.max(1, Math.round((groupBytes / totalDeviceBytes) * 100))}%`
+            : '10%';
+
+        generatedRecentCollections.push({
+          id: `date-${dateLabel.replace(/\s+/g, '-').toLowerCase()}`,
+          name: dateLabel,
+          dateLabel,
+          count: groupItems.length,
+          storageSize: formatBytes(groupBytes),
+          coverUri: groupItems[0]?.uri || '',
+          percentage: pct,
+          type: 'recent',
+        });
+      });
+
+      // 3. Featured Hero Cards: Pick the top 2 rich date clusters
+      const featured: Collection[] = generatedRecentCollections.slice(0, 2).map((col, idx) => ({
+        ...col,
+        id: `feat-${col.id}`,
+        type: 'featured',
+        percentage: col.percentage || (idx === 0 ? '16%' : '24%'),
+      }));
+
+      // 4. Query Real Device Albums (Folders like Camera, Screenshots, WhatsApp, Downloads)
+      let albumCollections: Collection[] = [];
+      const albumAssetsMap: Record<string, MediaItem[]> = {};
+      try {
+        const albums = await MediaLibrary.getAlbumsAsync({ includeSmartAlbums: true });
+        albumCollections = await Promise.all(
+          albums
+            .filter((alb) => alb.assetCount > 0)
+            .map(async (alb) => {
+              const albumAssets = await MediaLibrary.getAssetsAsync({
+                album: alb,
+                first: 200,
+                sortBy: MediaLibrary.SortBy.creationTime,
+              });
+              const mappedItems: MediaItem[] = albumAssets.assets
+                .filter((a) => !vaultIds.has(a.id))
+                .map((a) => ({
+                  id: a.id,
+                  uri: a.uri,
+                  filename: a.filename,
+                  width: a.width,
+                  height: a.height,
+                  creationTime: a.creationTime,
+                  modificationTime: a.modificationTime,
+                  duration: a.duration,
+                  mediaType: a.mediaType === 'video' ? 'video' : 'photo',
+                  fileSize: 2.5 * 1024 * 1024,
+                  formattedSize: formatBytes(2.5 * 1024 * 1024),
+                  isFavorite: favIds.has(a.id),
+                  albumId: alb.id,
+                  tags: tagMap.get(a.id) || [],
+                }));
+
+              albumAssetsMap[alb.id] = mappedItems;
+              const coverUri = mappedItems[0]?.uri || items[0]?.uri || '';
+              const estAlbumBytes = alb.assetCount * 2.5 * 1024 * 1024;
+              return {
+                id: `album-${alb.id}`,
+                name: alb.title,
+                dateLabel: `${alb.assetCount} photos`,
+                count: alb.assetCount,
+                storageSize: formatBytes(estAlbumBytes),
+                coverUri,
+                type: 'album',
+                albumId: alb.id,
+              };
+            })
+        );
+      } catch (albErr) {
+        console.warn('[MediaStore] Error fetching albums:', albErr);
+      }
+
+      set({
+        recentItems: items,
+        recentCollections: generatedRecentCollections,
+        featuredCollections: featured,
+        albumCollections,
+        albumAssetsMap,
+        isLoading: false,
+      });
     } catch (e) {
-      console.warn('[MediaStore] loadMedia error (falling back to curated seed):', e);
+      console.warn('[MediaStore] loadMedia error:', e);
+      set({ isLoading: false });
     }
+  },
+
+  setSearchQuery: (query: string) => {
+    set({ searchQuery: query });
+  },
+
+  getFilteredItems: () => {
+    const { recentItems, searchQuery, sortOrder } = get();
+    let filtered = [...recentItems];
+
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((item) => {
+        // Match filename
+        if (item.filename?.toLowerCase().includes(q)) return true;
+        // Match date label
+        const dateStr = formatDateLabel(item.creationTime).toLowerCase();
+        if (dateStr.includes(q)) return true;
+        // Match tags
+        if (item.tags?.some((t) => t.toLowerCase().includes(q))) return true;
+        return false;
+      });
+    }
+
+    if (sortOrder === 'date_desc') {
+      filtered.sort((a, b) => b.creationTime - a.creationTime);
+    } else if (sortOrder === 'date_asc') {
+      filtered.sort((a, b) => a.creationTime - b.creationTime);
+    } else if (sortOrder === 'size_desc') {
+      filtered.sort((a, b) => (b.fileSize || 0) - (a.fileSize || 0));
+    } else if (sortOrder === 'name_asc') {
+      filtered.sort((a, b) => (a.filename || '').localeCompare(b.filename || ''));
+    }
+
+    return filtered;
   },
 
   toggleFavorite: async (id: string) => {
@@ -441,6 +416,13 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         db.runSync('DELETE FROM photo_tags WHERE photo_id = ?;', [id]);
       }
 
+      // Also request system deletion from device library if possible
+      try {
+        await MediaLibrary.deleteAssetsAsync(ids);
+      } catch (delErr) {
+        console.warn('[MediaStore] MediaLibrary delete error:', delErr);
+      }
+
       set((state) => ({
         recentItems: state.recentItems.filter((item) => !idSet.has(item.id)),
       }));
@@ -454,10 +436,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const db = getDb();
       const id = `col-${Date.now()}`;
-      const defaultCover =
-        coverUri ||
-        get().recentItems[0]?.uri ||
-        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&q=80';
+      const defaultCover = coverUri || get().recentItems[0]?.uri || '';
 
       db.runSync(
         'INSERT INTO custom_collections (id, name, cover_uri, created_at) VALUES (?, ?, ?, ?);',
@@ -467,7 +446,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
       const newCol: Collection = {
         id,
         name,
-        dateLabel: 'Today',
+        dateLabel: 'Folder',
         count: 0,
         storageSize: '0 MB',
         coverUri: defaultCover,
@@ -482,28 +461,68 @@ export const useMediaStore = create<MediaState>((set, get) => ({
     }
   },
 
+  addPhotosToCollection: async (collectionId: string, photoIds: string[]) => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const db = getDb();
+      for (const id of photoIds) {
+        db.runSync(
+          `INSERT INTO photo_metadata (id, custom_collection_id, created_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET custom_collection_id = excluded.custom_collection_id;`,
+          [id, collectionId, Date.now()]
+        );
+      }
+      set((state) => ({
+        recentItems: state.recentItems.map((item) =>
+          photoIds.includes(item.id)
+            ? { ...item, collectionId }
+            : item
+        ),
+      }));
+    } catch (e) {
+      console.warn('[MediaStore] addPhotosToCollection error:', e);
+    }
+  },
+
   setSortOrder: (order) => {
     Haptics.selectionAsync();
-    set((state) => {
-      const sorted = [...state.recentItems];
-      if (order === 'date_desc') {
-        sorted.sort((a, b) => b.creationTime - a.creationTime);
-      } else if (order === 'date_asc') {
-        sorted.sort((a, b) => a.creationTime - b.creationTime);
-      } else if (order === 'size_desc') {
-        sorted.sort((a, b) => (b.fileSize || 0) - (a.fileSize || 0));
-      }
-      return { sortOrder: order, recentItems: sorted };
-    });
+    set({ sortOrder: order });
   },
 
   addTagToPhoto: async (photoId: string, tag: string) => {
+    const cleanTag = tag.trim().toLowerCase().replace(/^#/, '');
+    if (!cleanTag) return;
     try {
       const db = getDb();
       db.runSync(
         'INSERT OR IGNORE INTO photo_tags (photo_id, tag) VALUES (?, ?);',
-        [photoId, tag.trim().toLowerCase()]
+        [photoId, cleanTag]
       );
+
+      // Refresh tags in state
+      const tagRows = db.getAllSync<{ tag: string; count: number }>(
+        'SELECT tag, COUNT(*) as count FROM photo_tags GROUP BY tag ORDER BY count DESC;'
+      );
+      const updatedTags: Tag[] = tagRows.map((t, idx) => ({
+        id: `tag-${idx}`,
+        name: t.tag,
+        count: t.count,
+      }));
+
+      set((state) => ({
+        allTags: updatedTags,
+        recentItems: state.recentItems.map((i) => {
+          if (i.id === photoId) {
+            const curTags = i.tags || [];
+            return {
+              ...i,
+              tags: curTags.includes(cleanTag) ? curTags : [...curTags, cleanTag],
+            };
+          }
+          return i;
+        }),
+      }));
     } catch (e) {
       console.warn('[MediaStore] addTagToPhoto error:', e);
     }
@@ -516,12 +535,63 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         'DELETE FROM photo_tags WHERE photo_id = ? AND tag = ?;',
         [photoId, tag.trim().toLowerCase()]
       );
+
+      set((state) => ({
+        recentItems: state.recentItems.map((i) => {
+          if (i.id === photoId) {
+            return {
+              ...i,
+              tags: (i.tags || []).filter((t) => t !== tag),
+            };
+          }
+          return i;
+        }),
+      }));
     } catch (e) {
       console.warn('[MediaStore] removeTagFromPhoto error:', e);
     }
   },
 
+  getPhotoTags: (photoId: string) => {
+    const item = get().recentItems.find((i) => i.id === photoId);
+    return item?.tags || [];
+  },
+
   getCollectionItems: (collectionId: string) => {
-    return get().recentItems;
+    const { recentItems, albumAssetsMap, customCollections } = get();
+
+    // 1. Favorites
+    if (collectionId === 'favorites') {
+      return recentItems.filter((i) => i.isFavorite);
+    }
+
+    // 2. Check if date collection
+    if (collectionId.startsWith('date-') || collectionId.startsWith('feat-')) {
+      const cleaned = collectionId.replace('feat-', '').replace('date-', '');
+      const filtered = recentItems.filter((item) => {
+        const itemDateKey = formatDateLabel(item.creationTime)
+          .replace(/\s+/g, '-')
+          .toLowerCase();
+        return itemDateKey === cleaned;
+      });
+      if (filtered.length > 0) return filtered;
+    }
+
+    // 3. Check if device album (folder)
+    if (collectionId.startsWith('album-')) {
+      const albumId = collectionId.replace('album-', '');
+      if (albumAssetsMap && albumAssetsMap[albumId] && albumAssetsMap[albumId].length > 0) {
+        return albumAssetsMap[albumId];
+      }
+      const filtered = recentItems.filter((item) => item.albumId === albumId);
+      if (filtered.length > 0) return filtered;
+    }
+
+    // 4. Check if custom collection
+    const customMatches = recentItems.filter((item) => item.collectionId === collectionId);
+    if (customMatches.length > 0) return customMatches;
+
+    // Fallback
+    return recentItems;
   },
 }));

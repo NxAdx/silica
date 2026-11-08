@@ -15,6 +15,7 @@ export interface MediaItem {
   tags?: string[];
   isFavorite?: boolean;
   collectionId?: string;
+  albumId?: string;
   isVault?: boolean;
 }
 
@@ -26,7 +27,9 @@ export interface Collection {
   storageSize: string;
   coverUri: string;
   percentage?: string;
-  type: 'recent' | 'trips' | 'custom' | 'featured';
+  type: 'recent' | 'trips' | 'custom' | 'featured' | 'album' | 'favorite';
+  albumId?: string;
+  folderPath?: string;
 }
 
 export interface Tag {
@@ -34,4 +37,3 @@ export interface Tag {
   name: string;
   count: number;
 }
-

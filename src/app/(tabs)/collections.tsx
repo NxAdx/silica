@@ -1,5 +1,5 @@
-// Silica — Collections Tab Screen
-import React, { useState } from 'react';
+// Silica — Collections & Folder Manager with Instant Offline Search & Tagging
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Pressable,
   Modal,
   TextInput,
+  Dimensions,
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,31 +19,90 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../store/themeStore';
 import { useMediaStore } from '../../store/mediaStore';
 
+const { width } = Dimensions.get('window');
+const COLUMN_GAP = 12;
+const NUM_COLUMNS = 3;
+const ITEM_WIDTH = (width - 40 - COLUMN_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+
 export default function CollectionsTab() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, radius, isDark } = useTheme();
 
-  const [filter, setFilter] = useState<'all' | 'recent' | 'trips' | 'custom'>('all');
+  const [filter, setFilter] = useState<'all' | 'folders' | 'favorites' | 'custom'>('all');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
 
-  const featured = useMediaStore((s) => s.featuredCollections);
-  const recent = useMediaStore((s) => s.recentCollections);
-  const trips = useMediaStore((s) => s.tripCollections);
-  const custom = useMediaStore((s) => s.customCollections);
+  const searchQuery = useMediaStore((s) => s.searchQuery);
+  const setSearchQuery = useMediaStore((s) => s.setSearchQuery);
+  const getFilteredItems = useMediaStore((s) => s.getFilteredItems);
+  const allMediaItems = useMediaStore((s) => s.recentItems);
+  const recentCollections = useMediaStore((s) => s.recentCollections);
+  const albumCollections = useMediaStore((s) => s.albumCollections);
+  const customCollections = useMediaStore((s) => s.customCollections);
+  const allTags = useMediaStore((s) => s.allTags);
   const createCollection = useMediaStore((s) => s.createCollection);
 
-  const allCollections = [...featured, ...recent, ...trips, ...custom];
+  // Favorites collection
+  const favoritesCount = useMemo(
+    () => allMediaItems.filter((i) => i.isFavorite).length,
+    [allMediaItems]
+  );
+  const firstFavoriteCover = useMemo(
+    () => allMediaItems.find((i) => i.isFavorite)?.uri || '',
+    [allMediaItems]
+  );
 
-  const filteredCollections = allCollections.filter((c) => {
-    if (filter === 'all') return true;
-    return c.type === filter;
-  });
+  const displayedCollections = useMemo(() => {
+    let list: any[] = [];
+
+    if (filter === 'all' || filter === 'folders') {
+      list = [...list, ...albumCollections];
+    }
+    if (filter === 'all' || filter === 'favorites') {
+      if (favoritesCount > 0) {
+        list.push({
+          id: 'smart-favorites',
+          name: 'Favorites',
+          dateLabel: `${favoritesCount} photos`,
+          count: favoritesCount,
+          storageSize: '',
+          coverUri: firstFavoriteCover,
+          type: 'favorite',
+        });
+      }
+    }
+    if (filter === 'all' || filter === 'custom') {
+      list = [...list, ...customCollections];
+    }
+    if (filter === 'all' && list.length === 0) {
+      list = [...recentCollections];
+    }
+    return list;
+  }, [
+    filter,
+    albumCollections,
+    favoritesCount,
+    firstFavoriteCover,
+    customCollections,
+    recentCollections,
+  ]);
+
+  // Live search results
+  const searchResults = useMemo(() => {
+    if (selectedTag) {
+      return allMediaItems.filter((i) => i.tags?.includes(selectedTag));
+    }
+    if (searchQuery.trim().length > 0) {
+      return getFilteredItems();
+    }
+    return null;
+  }, [selectedTag, searchQuery, allMediaItems, getFilteredItems]);
 
   const handleCreateAlbum = async () => {
     if (!newAlbumName.trim()) {
-      Alert.alert('Album Name Required', 'Please enter a name for your new collection.');
+      Alert.alert('Collection Name Required', 'Please enter a name for your collection.');
       return;
     }
     await createCollection(newAlbumName.trim());
@@ -58,7 +118,7 @@ export default function CollectionsTab() {
           s.content,
           {
             paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 20) + 84,
+            paddingBottom: Math.max(insets.bottom, 20) + 96,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -83,75 +143,209 @@ export default function CollectionsTab() {
           </Pressable>
         </View>
 
-        {/* Filter Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.filterRow}
+        {/* Minimal Search Bar */}
+        <View
+          style={[
+            s.searchBar,
+            {
+              backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
+              borderRadius: radius.hero,
+            },
+          ]}
         >
-          {(['all', 'recent', 'trips', 'custom'] as const).map((key) => {
-            const isSelected = filter === key;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setFilter(key);
-                }}
-                style={({ pressed }) => [
-                  s.filterPill,
-                  {
-                    backgroundColor: isSelected
-                      ? colors.ink
-                      : isDark
-                      ? '#1C1C1E'
-                      : '#F2F2F7',
-                  },
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Text
-                  style={[
-                    s.filterPillText,
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color={colors.inkDim}
+            style={{ marginRight: 8 }}
+          />
+          <TextInput
+            style={[s.searchInput, { color: colors.ink }]}
+            placeholder="Search tags, folders, dates, or names"
+            placeholderTextColor={colors.inkDim}
+            value={searchQuery}
+            onChangeText={(text) => {
+              if (selectedTag) setSelectedTag(null);
+              setSearchQuery(text);
+            }}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.inkDim} />
+            </Pressable>
+          )}
+        </View>
+
+        {/* Tag Filter Chips Bar */}
+        {allTags.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.tagChipsRow}
+          >
+            {allTags.map((t) => {
+              const isSelected = selectedTag === t.name;
+              return (
+                <Pressable
+                  key={t.id}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedTag(isSelected ? null : t.name);
+                    if (!isSelected) setSearchQuery('');
+                  }}
+                  style={({ pressed }) => [
+                    s.tagChip,
                     {
-                      color: isSelected ? colors.bg : colors.inkMid,
-                      fontWeight: isSelected ? '700' : '500',
+                      backgroundColor: isSelected
+                        ? colors.ink
+                        : isDark
+                        ? '#1C1C1E'
+                        : '#F2F2F7',
                     },
+                    pressed && { opacity: 0.8 },
                   ]}
                 >
-                  {key.charAt(0).toUpperCase() + key.slice(1)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Text
+                    style={[
+                      s.tagChipText,
+                      {
+                        color: isSelected ? colors.bg : colors.inkMid,
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    #{t.name} ({t.count})
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
-        {/* Collections 2-Column Grid */}
-        <View style={s.grid}>
-          {filteredCollections.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => router.push(`/collection/${item.id}`)}
-              style={({ pressed }) => [
-                s.card,
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
+        {/* Search Results Display if Query or Tag Active */}
+        {searchResults !== null ? (
+          <View style={{ marginTop: 10 }}>
+            <View style={s.searchResultHeader}>
+              <Text style={[s.sectionTitle, { color: colors.ink }]}>
+                {selectedTag ? `#${selectedTag}` : 'Search Results'}
+              </Text>
+              <Text style={[s.countText, { color: colors.inkDim }]}>
+                {searchResults.length} photos
+              </Text>
+            </View>
+
+            {searchResults.length > 0 ? (
+              <View style={s.searchGrid}>
+                {searchResults.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => router.push(`/viewer/${item.id}`)}
+                    style={({ pressed }) => [
+                      s.gridCard,
+                      { borderRadius: radius.grid },
+                      pressed && { opacity: 0.9 },
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: item.uri }}
+                      style={[s.gridThumb, { borderRadius: radius.grid }]}
+                      contentFit="cover"
+                      transition={150}
+                    />
+                    {item.isFavorite && (
+                      <View style={s.favBadge}>
+                        <Ionicons name="heart" size={11} color="#FF3B30" />
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <View style={s.emptySearch}>
+                <Text style={{ color: colors.inkDim, fontSize: 14 }}>
+                  No photos matching your search.
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <>
+            {/* Filter Pills */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.filterRow}
             >
-              <Image
-                source={{ uri: item.coverUri }}
-                style={[s.thumb, { borderRadius: radius.grid }]}
-                contentFit="cover"
-                transition={200}
-              />
-              <Text style={[s.name, { color: colors.ink }]} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={[s.meta, { color: colors.inkDim }]}>
-                {item.count} items • {item.storageSize}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+              {(['all', 'folders', 'favorites', 'custom'] as const).map((key) => {
+                const isSelected = filter === key;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setFilter(key);
+                    }}
+                    style={({ pressed }) => [
+                      s.filterPill,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.ink
+                          : isDark
+                          ? '#1C1C1E'
+                          : '#F2F2F7',
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.filterPillText,
+                        {
+                          color: isSelected ? colors.bg : colors.inkMid,
+                          fontWeight: isSelected ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {key === 'folders'
+                        ? 'Folders'
+                        : key.charAt(0).toUpperCase() + key.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Collections & Folders 2-Column Grid */}
+            <View style={s.grid}>
+              {displayedCollections.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/collection/${item.id}`)}
+                  style={({ pressed }) => [
+                    s.card,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: item.coverUri }}
+                    style={[s.thumb, { borderRadius: radius.grid }]}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                  <Text style={[s.name, { color: colors.ink }]} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={[s.meta, { color: colors.inkDim }]}>
+                    {item.count} items {item.storageSize ? `• ${item.storageSize}` : ''}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Create New Album Modal */}
@@ -187,7 +381,7 @@ export default function CollectionsTab() {
                   borderRadius: radius.sm,
                 },
               ]}
-              placeholder="Collection Name (e.g. Kyoto Trip)"
+              placeholder="Collection name (e.g. Travel, Work)"
               placeholderTextColor={colors.inkDim}
               value={newAlbumName}
               onChangeText={setNewAlbumName}
@@ -253,6 +447,32 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  searchBar: {
+    height: 46,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderCurve: 'continuous',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  tagChipsRow: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  tagChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+  },
+  tagChipText: {
+    fontSize: 12,
+  },
   filterRow: {
     gap: 8,
     marginBottom: 20,
@@ -293,6 +513,53 @@ const s = StyleSheet.create({
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
     marginTop: 2,
+  },
+  searchResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  countText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  searchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: COLUMN_GAP,
+  },
+  gridCard: {
+    width: ITEM_WIDTH,
+    height: ITEM_WIDTH * 1.35,
+    overflow: 'hidden',
+    borderCurve: 'continuous',
+    position: 'relative',
+    backgroundColor: '#E5E5EA',
+  },
+  gridThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  favBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptySearch: {
+    paddingVertical: 40,
+    alignItems: 'center',
   },
   modalOverlay: {
     flex: 1,
