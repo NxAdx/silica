@@ -13,6 +13,9 @@ android/app/build/
 android/.gradle/
 android/build/
 android/app/.cxx/
+android/.idea/
+local.properties
+*.iml
 *.apk
 *.aab
 

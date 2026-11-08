@@ -11,6 +11,11 @@ export function GlassPillNav() {
   const pathname = usePathname();
   const { colors, radius, shadow, isDark } = useTheme();
 
+  // Hide floating capsule inside fullscreen photo viewer
+  if (pathname.includes('/viewer')) {
+    return null;
+  }
+
   const tabs = [
     { name: 'Home', route: '/', icon: 'home' as const, outlineIcon: 'home-outline' as const },
     { name: 'Collections', route: '/collections', icon: 'albums' as const, outlineIcon: 'albums-outline' as const },
@@ -38,13 +43,21 @@ export function GlassPillNav() {
       >
         <View style={s.innerRow}>
           {tabs.map((tab) => {
-            const isActive = pathname === tab.route || (tab.route === '/' && pathname === '/(tabs)');
+            const isActive =
+              pathname === tab.route ||
+              (tab.route === '/' && (pathname === '/(tabs)' || pathname === ''));
             return (
               <Pressable
                 key={tab.name}
                 onPress={() => handlePress(tab.route)}
                 style={({ pressed }) => [
                   s.tabBtn,
+                  isActive && {
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(0, 0, 0, 0.06)',
+                    borderRadius: 18,
+                  },
                   pressed && { opacity: 0.7, transform: [{ scale: 0.92 }] },
                 ]}
                 accessibilityLabel={tab.name}
@@ -84,13 +97,12 @@ const s = StyleSheet.create({
   innerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 32,
+    gap: 28,
   },
   tabBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 38,
     justifyContent: 'center',
     alignItems: 'center',
   },
 });
-

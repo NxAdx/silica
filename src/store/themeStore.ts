@@ -7,20 +7,26 @@ export type NightMode = 'system' | 'light' | 'dark';
 interface ThemeState {
   nightMode: NightMode;
   setNightMode: (mode: NightMode) => void;
+  toggleTheme: () => void;
 }
 
-export const useThemeStore = create<ThemeState>((set) => ({
+export const useThemeStore = create<ThemeState>((set, get) => ({
   nightMode: 'system',
   setNightMode: (mode) => set({ nightMode: mode }),
+  toggleTheme: () => {
+    const current = get().nightMode;
+    const next = current === 'dark' ? 'light' : 'dark';
+    set({ nightMode: next });
+  },
 }));
 
 export const useTheme = () => {
   const systemScheme = useColorScheme();
   const nightMode = useThemeStore((s) => s.nightMode);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
-  const isDark = nightMode === 'system'
-    ? systemScheme === 'dark'
-    : nightMode === 'dark';
+  const isDark =
+    nightMode === 'system' ? systemScheme === 'dark' : nightMode === 'dark';
 
   const colors: ThemeColors = isDark ? themes.dark : themes.light;
 
@@ -30,6 +36,6 @@ export const useTheme = () => {
     radius: tokens.radius,
     spacing: tokens.spacing,
     shadow: tokens.shadow,
+    toggleTheme,
   };
 };
-
