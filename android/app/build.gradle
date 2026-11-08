@@ -125,16 +125,16 @@ android {
             keyPassword 'android'
         }
         release {
-            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE') && file(MYAPP_UPLOAD_STORE_FILE).exists()) {
-                storeFile file(MYAPP_UPLOAD_STORE_FILE)
-                storePassword MYAPP_UPLOAD_STORE_PASSWORD
-                keyAlias MYAPP_UPLOAD_KEY_ALIAS
-                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
-            } else {
-                storeFile file('debug.keystore')
-                storePassword 'android'
-                keyAlias 'androiddebugkey'
-                keyPassword 'android'
+            def storePath = project.findProperty('MYAPP_UPLOAD_STORE_FILE') ?: 'release.keystore'
+            def keystoreFile = file(storePath)
+            if (!keystoreFile.exists()) {
+                keystoreFile = file('debug.keystore')
+            }
+            if (keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword (project.findProperty('MYAPP_UPLOAD_STORE_PASSWORD') ?: 'android')
+                keyAlias (project.findProperty('MYAPP_UPLOAD_KEY_ALIAS') ?: 'androiddebugkey')
+                keyPassword (project.findProperty('MYAPP_UPLOAD_KEY_PASSWORD') ?: 'android')
             }
         }
     }
