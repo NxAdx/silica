@@ -13,10 +13,10 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
 
-const TAB_WIDTH = 68;
-const DOCK_HEIGHT = 54;
-const THUMB_WIDTH = 58;
-const THUMB_HEIGHT = 42;
+const TAB_WIDTH = 64;
+const DOCK_HEIGHT = 52;
+const THUMB_WIDTH = 54;
+const THUMB_HEIGHT = 40;
 const THUMB_PADDING_OFFSET = (TAB_WIDTH - THUMB_WIDTH) / 2;
 
 export function GlassPillNav() {
@@ -100,20 +100,25 @@ export function GlassPillNav() {
           s.capsule,
           {
             backgroundColor: isDark
-              ? 'rgba(22, 22, 26, 0.82)'
+              ? 'rgba(24, 24, 28, 0.85)'
               : 'rgba(255, 255, 255, 0.85)',
             borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.15)'
+              ? 'rgba(255, 255, 255, 0.16)'
               : 'rgba(0, 0, 0, 0.08)',
           },
         ]}
       >
-        {/* Animated Sliding Squircle Thumb */}
+        {/* Animated Liquid Glass Sliding Squircle Thumb */}
         <Animated.View
           style={[
             s.thumb,
             {
-              backgroundColor: colors.ink,
+              backgroundColor: isDark
+                ? 'rgba(255, 255, 255, 0.16)'
+                : 'rgba(0, 0, 0, 0.08)',
+              borderColor: isDark
+                ? 'rgba(255, 255, 255, 0.22)'
+                : 'rgba(0, 0, 0, 0.06)',
             },
             thumbAnimatedStyle,
           ]}
@@ -141,10 +146,10 @@ export function GlassPillNav() {
                   size={21}
                   color={
                     isActive
-                      ? colors.bg
+                      ? colors.ink
                       : isDark
-                      ? 'rgba(255, 255, 255, 0.55)'
-                      : 'rgba(0, 0, 0, 0.5)'
+                      ? 'rgba(255, 255, 255, 0.45)'
+                      : 'rgba(0, 0, 0, 0.38)'
                   }
                 />
               </Pressable>
@@ -187,6 +192,7 @@ const s = StyleSheet.create({
     height: THUMB_HEIGHT,
     borderRadius: THUMB_HEIGHT / 2,
     borderCurve: 'continuous',
+    borderWidth: 0.8,
     zIndex: 1,
   },
   innerRow: {

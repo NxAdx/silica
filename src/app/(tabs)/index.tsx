@@ -70,42 +70,25 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: Home + Theme Toggle + Sort Button (Matching docs/ui design (1).jpg) */}
+        {/* Header: Home + Sort/Options Button (Matching docs/ui design (1).jpg) */}
         <View style={s.headerRow}>
           <Text style={[s.headerTitle, { color: colors.ink }]}>Home</Text>
 
-          <View style={s.headerActions}>
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                toggleTheme();
-              }}
-              style={({ pressed }) => [
-                s.sortBtn,
-                { backgroundColor: colors.btnBg },
-                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-              ]}
-              accessibilityLabel="Toggle Dark/Light Theme"
-            >
-              <Ionicons
-                name={isDark ? 'sunny-outline' : 'moon-outline'}
-                size={19}
-                color={colors.ink}
-              />
-            </Pressable>
-
-            <Pressable
-              onPress={handleSortPress}
-              style={({ pressed }) => [
-                s.sortBtn,
-                { backgroundColor: colors.btnBg },
-                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-              ]}
-              accessibilityLabel="Sort collections"
-            >
-              <Ionicons name="swap-vertical" size={19} color={colors.ink} />
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={handleSortPress}
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              toggleTheme();
+            }}
+            style={({ pressed }) => [
+              s.sortBtn,
+              { backgroundColor: colors.btnBg },
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+            ]}
+            accessibilityLabel="Sort collections and theme options (tap for menu, long press to toggle theme)"
+          >
+            <Ionicons name="swap-vertical" size={19} color={colors.ink} />
+          </Pressable>
         </View>
 
         {/* Permission Request Banner if permission is not yet granted */}
@@ -231,7 +214,9 @@ export default function HomeScreen() {
                     style={[s.recentMeta, { color: colors.inkDim }]}
                     numberOfLines={1}
                   >
-                    {item.count} • {item.storageSize}
+                    <Text>{item.count}</Text>
+                    <Text style={s.metaSeparator}>/</Text>
+                    <Text>{item.storageSize}</Text>
                   </Text>
                 </Pressable>
               ))}
@@ -298,7 +283,9 @@ export default function HomeScreen() {
                     style={[s.recentMeta, { color: colors.inkDim }]}
                     numberOfLines={1}
                   >
-                    {item.count} • {item.storageSize}
+                    <Text>{item.count}</Text>
+                    <Text style={s.metaSeparator}>/</Text>
+                    <Text>{item.storageSize}</Text>
                   </Text>
                 </Pressable>
               ))}
@@ -401,6 +388,40 @@ export default function HomeScreen() {
               {sortOrder === 'size_desc' && (
                 <Ionicons name="checkmark" size={18} color={colors.ink} />
               )}
+            </Pressable>
+
+            {/* Theme Toggle in Action Sheet */}
+            <View
+              style={{
+                height: 0.8,
+                backgroundColor: colors.stroke,
+                marginVertical: 10,
+              }}
+            />
+
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                toggleTheme();
+                setShowSortModal(false);
+              }}
+              style={s.sortOption}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Ionicons
+                  name={isDark ? 'sunny-outline' : 'moon-outline'}
+                  size={20}
+                  color={colors.ink}
+                />
+                <Text
+                  style={[
+                    s.sortOptionText,
+                    { color: colors.ink, fontWeight: '600' },
+                  ]}
+                >
+                  {isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+                </Text>
+              </View>
             </Pressable>
           </View>
         </Pressable>
@@ -545,6 +566,10 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
+  },
+  metaSeparator: {
+    marginHorizontal: 4,
+    opacity: 0.6,
   },
   modalOverlay: {
     flex: 1,
