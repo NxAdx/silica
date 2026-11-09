@@ -1,34 +1,80 @@
 // Silica — Apple WWDC Liquid Glass Floating Navigation Capsule
-import React from 'react';
+// Reference: expo-glass-custom-menu (modules/glass-menu-android & showcase-tabs)
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store/themeStore';
+
+const TAB_WIDTH = 68;
+const DOCK_HEIGHT = 54;
+const THUMB_WIDTH = 58;
+const THUMB_HEIGHT = 42;
+const THUMB_PADDING_OFFSET = (TAB_WIDTH - THUMB_WIDTH) / 2;
 
 export function GlassPillNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const { colors, radius, shadow, isDark } = useTheme();
+  const { isDark } = useTheme();
 
-  // Strictly only show on primary tabs: Home, Collections, Vault
-  const isTabScreen =
+  // Show on Home, Collections, Collection Detail, and Vault
+  const isVisibleScreen =
     pathname === '/' ||
     pathname === '/(tabs)' ||
     pathname === '/collections' ||
     pathname === '/(tabs)/collections' ||
+    pathname.startsWith('/collection') ||
     pathname === '/vault' ||
     pathname === '/(tabs)/vault';
 
-  if (!isTabScreen) {
+  // Determine active index
+  let activeIndex = 0;
+  if (pathname.startsWith('/collection') || pathname.includes('collections')) {
+    activeIndex = 1;
+  } else if (pathname.includes('vault')) {
+    activeIndex = 2;
+  }
+
+  const progress = useSharedValue(activeIndex);
+
+  useEffect(() => {
+    progress.value = withSpring(activeIndex, {
+      damping: 24,
+      stiffness: 240,
+      mass: 0.8,
+    });
+  }, [activeIndex, progress]);
+
+  if (!isVisibleScreen) {
     return null;
   }
 
   const tabs = [
-    { name: 'Home', route: '/', icon: 'home' as const, outlineIcon: 'home-outline' as const },
-    { name: 'Collections', route: '/collections', icon: 'albums' as const, outlineIcon: 'albums-outline' as const },
-    { name: 'Vault', route: '/vault', icon: 'lock-closed' as const, outlineIcon: 'lock-closed-outline' as const },
+    {
+      name: 'Home',
+      route: '/',
+      activeIcon: 'home' as const,
+      inactiveIcon: 'home-outline' as const,
+    },
+    {
+      name: 'Collections',
+      route: '/collections',
+      activeIcon: 'image' as const,
+      inactiveIcon: 'image-outline' as const,
+    },
+    {
+      name: 'Vault',
+      route: '/vault',
+      activeIcon: 'person' as const,
+      inactiveIcon: 'person-outline' as const,
+    },
   ];
 
   const handlePress = (route: string) => {
@@ -36,30 +82,46 @@ export function GlassPillNav() {
     router.replace(route as any);
   };
 
+  const thumbAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: progress.value * TAB_WIDTH + THUMB_PADDING_OFFSET,
+      },
+    ],
+  }));
+
   return (
     <View style={s.outerContainer} pointerEvents="box-none">
       <BlurView
-        intensity={isDark ? 55 : 80}
+        intensity={85}
         tint={isDark ? 'dark' : 'light'}
         style={[
           s.capsule,
           {
-            borderRadius: radius.pill,
             backgroundColor: isDark
-              ? 'rgba(20, 20, 24, 0.78)'
+              ? 'rgba(22, 22, 26, 0.82)'
               : 'rgba(255, 255, 255, 0.85)',
             borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.12)'
+              ? 'rgba(255, 255, 255, 0.15)'
               : 'rgba(0, 0, 0, 0.08)',
-            ...shadow.liquidGlass,
           },
         ]}
       >
+        {/* Animated Sliding Squircle Thumb */}
+        <Animated.View
+          style={[
+            s.thumb,
+            {
+              backgroundColor: isDark ? '#FFFFFF' : '#111113',
+            },
+            thumbAnimatedStyle,
+          ]}
+        />
+
+        {/* Tab Buttons Row */}
         <View style={s.innerRow}>
-          {tabs.map((tab) => {
-            const isActive =
-              pathname === tab.route ||
-              (tab.route === '/' && pathname === '/(tabs)');
+          {tabs.map((tab, idx) => {
+            const isActive = activeIndex === idx;
 
             return (
               <Pressable
@@ -67,20 +129,24 @@ export function GlassPillNav() {
                 onPress={() => handlePress(tab.route)}
                 style={({ pressed }) => [
                   s.tabBtn,
-                  isActive && {
-                    backgroundColor: isDark
-                      ? 'rgba(255, 255, 255, 0.22)'
-                      : '#111113',
-                    borderRadius: 19,
-                  },
-                  pressed && { opacity: 0.7, transform: [{ scale: 0.94 }] },
+                  pressed && { transform: [{ scale: 0.92 }] },
                 ]}
                 accessibilityLabel={tab.name}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
               >
                 <Ionicons
-                  name={isActive ? tab.icon : tab.outlineIcon}
-                  size={20}
-                  color={isActive ? '#FFFFFF' : colors.inkDim}
+                  name={isActive ? tab.activeIcon : tab.inactiveIcon}
+                  size={21}
+                  color={
+                    isActive
+                      ? isDark
+                        ? '#111113'
+                        : '#FFFFFF'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.55)'
+                      : 'rgba(0, 0, 0, 0.5)'
+                  }
                 />
               </Pressable>
             );
@@ -94,31 +160,46 @@ export function GlassPillNav() {
 const s = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    bottom: 28,
+    bottom: 26,
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 999,
   },
   capsule: {
-    height: 54,
-    paddingHorizontal: 22,
-    borderWidth: 0.8,
+    height: DOCK_HEIGHT,
+    width: TAB_WIDTH * 3 + 12,
+    borderRadius: DOCK_HEIGHT / 2,
     borderCurve: 'continuous',
+    borderWidth: 0.8,
     overflow: 'hidden',
+    paddingHorizontal: 6,
     justifyContent: 'center',
-    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 14,
+  },
+  thumb: {
+    position: 'absolute',
+    top: (DOCK_HEIGHT - THUMB_HEIGHT) / 2,
+    width: THUMB_WIDTH,
+    height: THUMB_HEIGHT,
+    borderRadius: THUMB_HEIGHT / 2,
+    borderCurve: 'continuous',
+    zIndex: 1,
   },
   innerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 30,
+    justifyContent: 'space-between',
+    zIndex: 2,
   },
   tabBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
+    width: TAB_WIDTH,
+    height: DOCK_HEIGHT,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -44,9 +44,13 @@ jobs:
         run: |
           mkdir -p android/app
           if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding custom secret keystore."
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+          elif [ -f "android/app/debug.keystore" ]; then
+            echo "Using persistent repository keystore for uniform deterministic release signing."
+            cp android/app/debug.keystore android/app/release.keystore
           else
-            echo "No custom keystore secret provided, generating release signing keystore."
+            echo "Generating fallback keystore."
             keytool -genkeypair -v -storetype PKCS12 -keystore android/app/release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Silica, OU=Mobile, O=Silica, L=Pune, S=MH, C=IN"
           fi
 

@@ -85,7 +85,7 @@ Every agent working in this repository MUST apply these installed skills:
 
 ---
 
-## Mandatory Ecosystem Directive: Check and Use All Skills & REA
+## Mandatory Ecosystem Directive: Check and Use All Skills, REA & Visual Inspiration
 
 Every AI agent working in this repository MUST observe this mandate:
 
@@ -94,12 +94,16 @@ Every AI agent working in this repository MUST observe this mandate:
    - **hallmark** (
 utlope/hallmark): Run /hallmark design guidance, adhere to Floor/Reflex/Finish gates, and verify layout integrity using sloplint.mjs.
    - **impeccable** (pbakaus/impeccable): Execute deterministic anti-slop scans (impeccable detect) and apply design vocabulary commands (polish, older, quieter, critique, udit, harden, 	ypeset, layout).
+   - **opendesigner** (opendesigner.dev / ckryptickunal/OpenDesigner): Use the 9 modular OpenDesigner skills (opendesigner, opendesigner-review, opendesigner-preflight, opendesigner-extract, opendesigner-extend, opendesigner-export) to author and audit design systems, tokens, and DESIGN.md.
    - **pple-design & ppllama-app-design-skill**: Enforce continuous squircle borders (orderCurve: 'continuous'), tabular numerals (ontVariant: ['tabular-nums']), dual-theme palette tokens, and fluid haptics.
    - **eact-native-best-practices**: Optimize list rendering with @shopify/flash-list, memoize selectors, and prevent memory leaks.
    - **expo-router, expo-animation, nimate-expo, expo-module, greenlight, mobile-native, ndroid-updater-patterns**: Follow idiomatic patterns for navigation, 60fps UI-thread worklets, native Kotlin modules, and store compliance.
 
-2. **Actively Leverage REA (Reverse Engineer Anything)**:
+2. **Ground-Truth Visual Layout Inspiration**:
+   - **Subframe Inspiration (subframe.com/inspiration)**: Check Subframe's real, production-ready interface blueprints (dashboards, list cards, minimal navigation, detail views) for layout proportions, generous rhythm, and clean visual hierarchy before building any screen.
+   - Never invent arbitrary layouts when production-tested patterns exist in Subframe and Hallmark themes.
+
+3. **Actively Leverage REA (Reverse Engineer Anything)**:
    - Primary REA Engine: Located at D:\Production\rea with reference APKs in D:\Production\rea\apks/.
    - Before building new complex systems, inspect decompiled reference APKs (Photos.apk, system launchers, productivity apps) for ground-truth schema definitions, MediaStore query projections, notification lifecycle hooks, and native service configurations.
    - Follow D:\Production\docs\REVERSE_ENGINEERING_PLAYBOOK.md to extract production-tested architectures instead of improvising.
-
