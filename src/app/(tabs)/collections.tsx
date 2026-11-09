@@ -223,7 +223,11 @@ export default function CollectionsTab() {
                       source={{ uri: item.uri }}
                       style={[s.gridThumb, { borderRadius: radius.grid }]}
                       contentFit="cover"
-                      transition={150}
+                      transition={100}
+                      priority="normal"
+                      cachePolicy="memory-disk"
+                      recyclingKey={item.id}
+                      placeholder={isDark ? '#141416' : '#E5E5EA'}
                     />
                     {item.isFavorite && (
                       <View style={s.favBadge}>
@@ -301,7 +305,11 @@ export default function CollectionsTab() {
                     source={{ uri: item.coverUri }}
                     style={[s.thumb, { borderRadius: radius.grid }]}
                     contentFit="cover"
-                    transition={150}
+                    transition={100}
+                    priority="normal"
+                    cachePolicy="memory-disk"
+                    recyclingKey={item.id}
+                    placeholder={isDark ? '#141416' : '#E5E5EA'}
                   />
                   <Text style={[s.name, { color: colors.ink }]} numberOfLines={1}>
                     {item.name}

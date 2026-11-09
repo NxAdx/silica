@@ -376,9 +376,10 @@ export default function VaultTab() {
                     source={{ uri: item.uri }}
                     style={s.gridThumb}
                     contentFit="cover"
-                    transition={150}
-                    priority="high"
+                    transition={100}
+                    priority="normal"
                     cachePolicy="memory-disk"
+                    placeholder={isDark ? '#141416' : '#E5E5EA'}
                   />
                   {/* Lock Badge in Upper Right Corner */}
                   <View style={s.vaultBadge}>

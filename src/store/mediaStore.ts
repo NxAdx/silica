@@ -90,6 +90,80 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+export function buildCollectionsFromItems(items: MediaItem[]): {
+  recentCollections: Collection[];
+  featured: Collection[];
+} {
+  const dateGroups = new Map<string, MediaItem[]>();
+  for (const item of items) {
+    const dateKey = formatDateLabel(item.creationTime);
+    const group = dateGroups.get(dateKey) || [];
+    group.push(item);
+    dateGroups.set(dateKey, group);
+  }
+
+  const totalDeviceBytes = items.reduce((sum, i) => sum + (i.fileSize || 0), 0);
+  const recentCollections: Collection[] = [];
+
+  dateGroups.forEach((groupItems, dateLabel) => {
+    const groupBytes = groupItems.reduce((sum, i) => sum + (i.fileSize || 0), 0);
+    const pct =
+      totalDeviceBytes > 0
+        ? `${Math.max(1, Math.round((groupBytes / totalDeviceBytes) * 100))}%`
+        : '10%';
+
+    recentCollections.push({
+      id: `date-${dateLabel.replace(/\s+/g, '-').toLowerCase()}`,
+      name: dateLabel,
+      dateLabel,
+      count: groupItems.length,
+      storageSize: formatBytes(groupBytes),
+      coverUri: groupItems[0]?.uri || '',
+      avatarUri: groupItems.length > 1 ? groupItems[1]?.uri : groupItems[0]?.uri,
+      percentage: pct,
+      type: 'recent',
+    });
+  });
+
+  const featured: Collection[] = [];
+  if (recentCollections.length >= 2) {
+    featured.push({
+      ...recentCollections[0],
+      id: `feat-${recentCollections[0].id}`,
+      type: 'featured',
+      percentage: recentCollections[0].percentage || '16%',
+    });
+    featured.push({
+      ...recentCollections[1],
+      id: `feat-${recentCollections[1].id}`,
+      type: 'featured',
+      percentage: recentCollections[1].percentage || '24%',
+    });
+  } else if (recentCollections.length === 1) {
+    featured.push({
+      ...recentCollections[0],
+      id: `feat-${recentCollections[0].id}`,
+      type: 'featured',
+      percentage: '100%',
+    });
+    if (items.length > 1) {
+      featured.push({
+        id: 'feat-all',
+        name: 'Highlights',
+        dateLabel: 'Highlights',
+        count: items.length,
+        storageSize: formatBytes(totalDeviceBytes),
+        coverUri: items[1]?.uri || items[0]?.uri || '',
+        avatarUri: items[0]?.uri,
+        percentage: '50%',
+        type: 'featured',
+      });
+    }
+  }
+
+  return { recentCollections, featured };
+}
+
 export const useMediaStore = create<MediaState>((set, get) => ({
   hasPermission: false,
   permissionStatus: 'undetermined',
@@ -131,11 +205,34 @@ export const useMediaStore = create<MediaState>((set, get) => ({
           cover_uri TEXT,
           created_at INTEGER
         );
+        CREATE TABLE IF NOT EXISTS cached_media (
+          id TEXT PRIMARY KEY,
+          uri TEXT NOT NULL,
+          filename TEXT,
+          width INTEGER,
+          height INTEGER,
+          file_size INTEGER DEFAULT 0,
+          creation_time INTEGER,
+          modification_time INTEGER,
+          duration REAL,
+          media_type TEXT,
+          album_id TEXT
+        );
+        CREATE TABLE IF NOT EXISTS cached_albums (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          cover_uri TEXT,
+          count INTEGER DEFAULT 0,
+          storage_size TEXT,
+          album_id TEXT
+        );
         CREATE INDEX IF NOT EXISTS idx_photo_tags_tag ON photo_tags(tag);
         CREATE INDEX IF NOT EXISTS idx_photo_metadata_vault ON photo_metadata(is_vault);
+        CREATE INDEX IF NOT EXISTS idx_cached_media_creation ON cached_media(creation_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_cached_media_album ON cached_media(album_id);
       `);
 
-      // Load custom collections
+      // 1. Load custom collections
       const customRows = db.getAllSync<{
         id: string;
         name: string;
@@ -153,7 +250,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         type: 'custom',
       }));
 
-      // Load all tags
+      // 2. Load all tags
       const tagRows = db.getAllSync<{ tag: string; count: number }>(
         'SELECT tag, COUNT(*) as count FROM photo_tags GROUP BY tag ORDER BY count DESC;'
       );
@@ -163,11 +260,102 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         count: t.count,
       }));
 
-      set({
-        customCollections: loadedCustom,
-        allTags: loadedTags,
-        isLoading: false,
-      });
+      // 3. Load cached albums
+      const cachedAlbumRows = db.getAllSync<{
+        id: string;
+        name: string;
+        cover_uri: string;
+        count: number;
+        storage_size: string;
+        album_id: string;
+      }>('SELECT * FROM cached_albums ORDER BY count DESC;');
+
+      const loadedAlbums: Collection[] = cachedAlbumRows.map((a) => ({
+        id: a.id,
+        name: a.name,
+        dateLabel: `${a.count} photos`,
+        count: a.count,
+        storageSize: a.storage_size || '0 MB',
+        coverUri: a.cover_uri || '',
+        type: 'album',
+        albumId: a.album_id,
+      }));
+
+      // 4. INSTANT CACHE WARMING: Load cached_media from SQLite
+      const cachedMediaRows = db.getAllSync<{
+        id: string;
+        uri: string;
+        filename: string;
+        width: number;
+        height: number;
+        file_size: number;
+        creation_time: number;
+        modification_time: number;
+        duration: number;
+        media_type: string;
+        album_id: string;
+      }>('SELECT * FROM cached_media ORDER BY creation_time DESC;');
+
+      const favRows = db.getAllSync<{ id: string }>(
+        'SELECT id FROM photo_metadata WHERE is_favorite = 1;'
+      );
+      const favIds = new Set(favRows.map((r) => r.id));
+
+      const vaultRows = db.getAllSync<{ id: string }>(
+        'SELECT id FROM photo_metadata WHERE is_vault = 1;'
+      );
+      const vaultIds = new Set(vaultRows.map((r) => r.id));
+
+      const tagItemRows = db.getAllSync<{ photo_id: string; tag: string }>(
+        'SELECT photo_id, tag FROM photo_tags;'
+      );
+      const tagMap = new Map<string, string[]>();
+      for (const t of tagItemRows) {
+        const list = tagMap.get(t.photo_id) || [];
+        list.push(t.tag);
+        tagMap.set(t.photo_id, list);
+      }
+
+      if (cachedMediaRows.length > 0) {
+        const items: MediaItem[] = cachedMediaRows
+          .filter((r) => !vaultIds.has(r.id))
+          .map((r) => ({
+            id: r.id,
+            uri: r.uri,
+            filename: r.filename,
+            width: r.width,
+            height: r.height,
+            creationTime: r.creation_time,
+            modificationTime: r.modification_time,
+            duration: r.duration,
+            mediaType: r.media_type === 'video' ? 'video' : 'photo',
+            fileSize: r.file_size || 2.5 * 1024 * 1024,
+            formattedSize: formatBytes(r.file_size || 2.5 * 1024 * 1024),
+            isFavorite: favIds.has(r.id),
+            albumId: r.album_id,
+            tags: tagMap.get(r.id) || [],
+          }));
+
+        const { recentCollections, featured } = buildCollectionsFromItems(items);
+
+        set({
+          recentItems: items,
+          recentCollections,
+          featuredCollections: featured,
+          albumCollections: loadedAlbums,
+          customCollections: loadedCustom,
+          allTags: loadedTags,
+          hasPermission: true,
+          isLoading: false,
+        });
+      } else {
+        set({
+          albumCollections: loadedAlbums,
+          customCollections: loadedCustom,
+          allTags: loadedTags,
+          isLoading: false,
+        });
+      }
     } catch (e) {
       console.warn('[MediaStore] initDB error:', e);
       set({ isLoading: false });
@@ -190,7 +378,11 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   },
 
   loadMedia: async () => {
-    set({ isLoading: true });
+    // Only set isLoading if we don't have any cached items yet to avoid screen blinking
+    if (get().recentItems.length === 0) {
+      set({ isLoading: true });
+    }
+
     try {
       // 1. Query real assets from the device
       const { assets } = await MediaLibrary.getAssetsAsync({
@@ -225,9 +417,17 @@ export const useMediaStore = create<MediaState>((set, get) => ({
       // Filter out hidden vault photos
       const visibleAssets = assets.filter((a) => !vaultIds.has(a.id));
 
+      // Build album cover map in O(N) memory lookup without making 50 IPC round-trips
+      const albumCoverMap = new Map<string, string>();
+      for (const a of visibleAssets) {
+        if (a.albumId && !albumCoverMap.has(a.albumId)) {
+          albumCoverMap.set(a.albumId, a.uri);
+        }
+      }
+
       const items: MediaItem[] = visibleAssets.map((a) => {
-        // Estimate size if not available (~2.5MB per photo)
-        const estSize = 2.5 * 1024 * 1024;
+        // Accurate size estimation: JPEG compressed ~0.35 bytes/pixel
+        const estSize = Math.max(1024 * 50, Math.round((a.width || 1920) * (a.height || 1080) * 0.35));
         return {
           id: a.id,
           uri: a.uri,
@@ -246,108 +446,93 @@ export const useMediaStore = create<MediaState>((set, get) => ({
         };
       });
 
-      // 2. Group real photos by Date Clusters (for Home Carousels & Hero Cards)
-      const dateGroups = new Map<string, MediaItem[]>();
-      for (const item of items) {
-        const dateKey = formatDateLabel(item.creationTime);
-        const group = dateGroups.get(dateKey) || [];
-        group.push(item);
-        dateGroups.set(dateKey, group);
-      }
+      // 2. Compute date groups and hero cards
+      const { recentCollections, featured } = buildCollectionsFromItems(items);
 
-      const totalDeviceBytes = items.reduce((sum, i) => sum + (i.fileSize || 0), 0);
-
-      const generatedRecentCollections: Collection[] = [];
-      dateGroups.forEach((groupItems, dateLabel) => {
-        const groupBytes = groupItems.reduce((sum, i) => sum + (i.fileSize || 0), 0);
-        const pct =
-          totalDeviceBytes > 0
-            ? `${Math.max(1, Math.round((groupBytes / totalDeviceBytes) * 100))}%`
-            : '10%';
-
-        generatedRecentCollections.push({
-          id: `date-${dateLabel.replace(/\s+/g, '-').toLowerCase()}`,
-          name: dateLabel,
-          dateLabel,
-          count: groupItems.length,
-          storageSize: formatBytes(groupBytes),
-          coverUri: groupItems[0]?.uri || '',
-          avatarUri: groupItems.length > 1 ? groupItems[1]?.uri : groupItems[0]?.uri,
-          percentage: pct,
-          type: 'recent',
-        });
-      });
-
-      // 3. Featured Hero Cards: Pick rich date clusters or highlights
-      const featured: Collection[] = [];
-      if (generatedRecentCollections.length >= 2) {
-        featured.push({
-          ...generatedRecentCollections[0],
-          id: `feat-${generatedRecentCollections[0].id}`,
-          type: 'featured',
-          percentage: generatedRecentCollections[0].percentage || '16%',
-        });
-        featured.push({
-          ...generatedRecentCollections[1],
-          id: `feat-${generatedRecentCollections[1].id}`,
-          type: 'featured',
-          percentage: generatedRecentCollections[1].percentage || '24%',
-        });
-      } else if (generatedRecentCollections.length === 1) {
-        featured.push({
-          ...generatedRecentCollections[0],
-          id: `feat-${generatedRecentCollections[0].id}`,
-          type: 'featured',
-          percentage: '100%',
-        });
-        if (items.length > 1) {
-          featured.push({
-            id: 'feat-all',
-            name: 'Highlights',
-            dateLabel: 'Highlights',
-            count: items.length,
-            storageSize: formatBytes(totalDeviceBytes),
-            coverUri: items[1]?.uri || items[0]?.uri || '',
-            percentage: '50%',
-            type: 'featured',
-          });
-        }
-      }
-
-      // 4. Query Real Device Albums (Folders like Camera, Screenshots, WhatsApp, Downloads)
+      // 3. Query Device Albums (Folders)
       let albumCollections: Collection[] = [];
       try {
         const albums = await MediaLibrary.getAlbumsAsync({ includeSmartAlbums: true });
-        albumCollections = await Promise.all(
-          albums
-            .filter((alb) => alb.assetCount > 0)
-            .map(async (alb) => {
-              const albumAssets = await MediaLibrary.getAssetsAsync({
-                album: alb,
-                first: 1,
-                sortBy: MediaLibrary.SortBy.creationTime,
-              });
-              const coverUri = albumAssets.assets[0]?.uri || items[0]?.uri || '';
-              const estAlbumBytes = alb.assetCount * 2.5 * 1024 * 1024;
-              return {
-                id: `album-${alb.id}`,
-                name: alb.title,
-                dateLabel: `${alb.assetCount} photos`,
-                count: alb.assetCount,
-                storageSize: formatBytes(estAlbumBytes),
-                coverUri,
-                type: 'album',
-                albumId: alb.id,
-              };
-            })
-        );
+        albumCollections = albums
+          .filter((alb) => alb.assetCount > 0)
+          .map((alb) => {
+            const coverUri = albumCoverMap.get(alb.id) || items[0]?.uri || '';
+            const estAlbumBytes = alb.assetCount * 2.5 * 1024 * 1024;
+            return {
+              id: `album-${alb.id}`,
+              name: alb.title,
+              dateLabel: `${alb.assetCount} photos`,
+              count: alb.assetCount,
+              storageSize: formatBytes(estAlbumBytes),
+              coverUri,
+              type: 'album',
+              albumId: alb.id,
+            };
+          });
       } catch (albErr) {
         console.warn('[MediaStore] Error fetching albums:', albErr);
       }
 
+      // 4. Synchronously persist to SQLite cache inside a transaction
+      try {
+        db.withTransactionSync(() => {
+          db.runSync('DELETE FROM cached_media;');
+          const stmt = db.prepareSync(
+            `INSERT OR REPLACE INTO cached_media (
+              id, uri, filename, width, height, file_size, creation_time, modification_time, duration, media_type, album_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+          );
+          try {
+            for (const a of visibleAssets) {
+              const estSize = Math.max(1024 * 50, Math.round((a.width || 1920) * (a.height || 1080) * 0.35));
+              stmt.executeSync([
+                a.id,
+                a.uri,
+                a.filename,
+                a.width,
+                a.height,
+                estSize,
+                a.creationTime,
+                a.modificationTime,
+                a.duration || 0,
+                a.mediaType === 'video' ? 'video' : 'photo',
+                a.albumId || '',
+              ]);
+            }
+          } finally {
+            stmt.finalizeSync();
+          }
+
+          if (albumCollections.length > 0) {
+            db.runSync('DELETE FROM cached_albums;');
+            const albStmt = db.prepareSync(
+              `INSERT OR REPLACE INTO cached_albums (
+                id, name, cover_uri, count, storage_size, album_id
+              ) VALUES (?, ?, ?, ?, ?, ?);`
+            );
+            try {
+              for (const alb of albumCollections) {
+                albStmt.executeSync([
+                  alb.id,
+                  alb.name,
+                  alb.coverUri,
+                  alb.count,
+                  alb.storageSize,
+                  alb.albumId || '',
+                ]);
+              }
+            } finally {
+              albStmt.finalizeSync();
+            }
+          }
+        });
+      } catch (persistErr) {
+        console.warn('[MediaStore] Error caching media to SQLite:', persistErr);
+      }
+
       set({
         recentItems: items,
-        recentCollections: generatedRecentCollections,
+        recentCollections,
         featuredCollections: featured,
         albumCollections,
         isLoading: false,
@@ -576,14 +761,19 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   },
 
   getCollectionItems: (collectionId: string) => {
-    const { recentItems, albumAssetsMap, customCollections } = get();
+    const { recentItems, albumAssetsMap } = get();
 
-    // 1. Favorites
+    // 1. All photos
+    if (collectionId === 'all' || collectionId === 'feat-all') {
+      return recentItems;
+    }
+
+    // 2. Favorites
     if (collectionId === 'favorites') {
       return recentItems.filter((i) => i.isFavorite);
     }
 
-    // 2. Check if date collection
+    // 3. Check if date collection
     if (collectionId.startsWith('date-') || collectionId.startsWith('feat-')) {
       const cleaned = collectionId.replace('feat-', '').replace('date-', '');
       const filtered = recentItems.filter((item) => {
@@ -592,10 +782,10 @@ export const useMediaStore = create<MediaState>((set, get) => ({
           .toLowerCase();
         return itemDateKey === cleaned;
       });
-      if (filtered.length > 0) return filtered;
+      return filtered;
     }
 
-    // 3. Check if device album (folder)
+    // 4. Check if device album (folder)
     if (collectionId.startsWith('album-')) {
       const albumId = collectionId.replace('album-', '');
       if (albumAssetsMap && albumAssetsMap[albumId] && albumAssetsMap[albumId].length > 0) {
@@ -603,13 +793,49 @@ export const useMediaStore = create<MediaState>((set, get) => ({
       }
       const filtered = recentItems.filter((item) => item.albumId === albumId);
       if (filtered.length > 0) return filtered;
+
+      // Query from SQLite cached_media directly
+      try {
+        const db = getDb();
+        const cached = db.getAllSync<{
+          id: string;
+          uri: string;
+          filename: string;
+          width: number;
+          height: number;
+          file_size: number;
+          creation_time: number;
+          modification_time: number;
+          duration: number;
+          media_type: string;
+          album_id: string;
+        }>('SELECT * FROM cached_media WHERE album_id = ? ORDER BY creation_time DESC;', [albumId]);
+        if (cached.length > 0) {
+          return cached.map((r) => ({
+            id: r.id,
+            uri: r.uri,
+            filename: r.filename,
+            width: r.width,
+            height: r.height,
+            creationTime: r.creation_time,
+            modificationTime: r.modification_time,
+            duration: r.duration,
+            mediaType: r.media_type === 'video' ? 'video' : 'photo',
+            fileSize: r.file_size || 2.5 * 1024 * 1024,
+            formattedSize: formatBytes(r.file_size || 2.5 * 1024 * 1024),
+            isFavorite: false,
+            albumId: r.album_id,
+            tags: [],
+          }));
+        }
+      } catch {}
+      return [];
     }
 
-    // 4. Check if custom collection
+    // 5. Check if custom collection
     const customMatches = recentItems.filter((item) => item.collectionId === collectionId);
     if (customMatches.length > 0) return customMatches;
 
-    // Fallback
     return recentItems;
   },
 

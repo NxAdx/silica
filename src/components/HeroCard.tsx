@@ -37,7 +37,10 @@ export function HeroCard({ collection }: HeroCardProps) {
         source={{ uri: collection.coverUri }}
         style={s.image}
         contentFit="cover"
-        transition={250}
+        transition={150}
+        priority="high"
+        cachePolicy="memory-disk"
+        placeholder={isDark ? '#141416' : '#E5E5EA'}
       />
 
       {/* Top Left Frosted Percentage Badge */}
@@ -58,6 +61,9 @@ export function HeroCard({ collection }: HeroCardProps) {
             source={{ uri: collection.avatarUri || collection.coverUri }}
             style={s.avatar}
             contentFit="cover"
+            priority="normal"
+            cachePolicy="memory-disk"
+            placeholder={isDark ? '#141416' : '#E5E5EA'}
           />
         </View>
 

@@ -30,6 +30,7 @@ export default function HomeScreen() {
   const recent = useMediaStore((s) => s.recentCollections);
   const albums = useMediaStore((s) => s.albumCollections);
   const recentItems = useMediaStore((s) => s.recentItems);
+  const isLoading = useMediaStore((s) => s.isLoading);
   const sortOrder = useMediaStore((s) => s.sortOrder);
   const setSortOrder = useMediaStore((s) => s.setSortOrder);
 
@@ -138,7 +139,7 @@ export default function HomeScreen() {
               <HeroCard key={col.id} collection={col} />
             ))}
           </View>
-        ) : hasPermission && recentItems.length === 0 ? (
+        ) : !isLoading && hasPermission && recentItems.length === 0 ? (
           <View
             style={[
               s.emptyHero,
@@ -197,7 +198,11 @@ export default function HomeScreen() {
                     source={{ uri: item.coverUri }}
                     style={[s.recentThumb, { borderRadius: radius.grid }]}
                     contentFit="cover"
-                    transition={150}
+                    transition={100}
+                    priority="normal"
+                    cachePolicy="memory-disk"
+                    recyclingKey={item.id}
+                    placeholder={isDark ? '#141416' : '#E5E5EA'}
                   />
                   <Text
                     style={[s.recentDate, { color: colors.ink }]}
@@ -256,7 +261,11 @@ export default function HomeScreen() {
                     source={{ uri: item.coverUri }}
                     style={[s.recentThumb, { borderRadius: radius.grid }]}
                     contentFit="cover"
-                    transition={150}
+                    transition={100}
+                    priority="normal"
+                    cachePolicy="memory-disk"
+                    recyclingKey={item.id}
+                    placeholder={isDark ? '#141416' : '#E5E5EA'}
                   />
                   <Text
                     style={[s.recentDate, { color: colors.ink }]}

@@ -54,7 +54,7 @@ export default function CollectionDetailScreen() {
   const addToVault = useVaultStore((s) => s.addToVault);
 
   const collectionItems = getCollectionItems(id || '');
-  const displayItems = collectionItems.length > 0 ? collectionItems : allMediaItems;
+  const displayItems = (id && id !== 'all') ? collectionItems : allMediaItems;
   const loadAlbumAssets = useMediaStore((s) => s.loadAlbumAssets);
 
   useEffect(() => {
@@ -64,7 +64,9 @@ export default function CollectionDetailScreen() {
     }
   }, [id, loadAlbumAssets]);
 
-  let collection = [...featured, ...recent, ...custom, ...albumCollections].find((c) => c.id === id);
+  let collection = [...featured, ...recent, ...custom, ...albumCollections].find(
+    (c) => c.id === id || (c.albumId && `album-${c.albumId}` === id)
+  );
   if (!collection && id === 'favorites') {
     collection = {
       id: 'favorites',
@@ -78,7 +80,7 @@ export default function CollectionDetailScreen() {
   }
   const resolvedCollection: Collection = collection || {
     id: id || 'collection',
-    name: 'Collection',
+    name: displayItems[0] ? formatDateLabel(displayItems[0].creationTime) : 'Collection',
     dateLabel: displayItems[0] ? formatDateLabel(displayItems[0].creationTime) : 'Collection',
     count: displayItems.length,
     storageSize: `${Math.round(displayItems.length * 2.5)} MB`,
@@ -163,23 +165,26 @@ export default function CollectionDetailScreen() {
 
   const renderHeader = () => (
     <View>
-      {/* Hero Header with Smooth Vignette Fade */}
-      <View style={[s.heroWrapper, { backgroundColor: isDark ? '#1C1C1E' : '#E5E5EA' }]}>
+      {/* Hero Header with Vibrant Artwork & Top Controls Scrim */}
+      <View style={[s.heroWrapper, { backgroundColor: isDark ? '#141416' : '#E5E5EA' }]}>
         <Image
           source={{ uri: resolvedCollection.coverUri || displayItems[0]?.uri }}
           style={s.heroImage}
           contentFit="cover"
           priority="high"
+          cachePolicy="memory-disk"
+          placeholder={isDark ? '#141416' : '#E5E5EA'}
+          transition={150}
         />
 
-        {/* Vignette Gradient Overlay at Bottom */}
+        {/* Top Scrim for Status Bar & Navigation Controls */}
         <View
           style={[
-            s.vignetteOverlay,
+            s.topScrim,
             {
               backgroundColor: isDark
-                ? 'rgba(0,0,0,0.65)'
-                : 'rgba(255,255,255,0.45)',
+                ? 'rgba(0,0,0,0.35)'
+                : 'rgba(255,255,255,0.2)',
             },
           ]}
         />
@@ -256,7 +261,7 @@ export default function CollectionDetailScreen() {
         </View>
       </View>
 
-      {/* Collection Title & The Signature Clean Pill */}
+      {/* Collection Title & The Signature Clean Pill Matching docs/ui design (2).jpg */}
       <View style={s.metaSection}>
         <Text style={[s.dateTitle, { color: colors.ink }]}>
           {resolvedCollection.name || resolvedCollection.dateLabel}
@@ -274,6 +279,7 @@ export default function CollectionDetailScreen() {
           ]}
         >
           <Text style={[s.cleanText, { color: colors.ink }]}>Clean</Text>
+          <Ionicons name="sparkles" size={13} color={colors.ink} style={{ marginLeft: 5 }} />
         </Pressable>
       </View>
 
@@ -283,7 +289,7 @@ export default function CollectionDetailScreen() {
           All Images
         </Text>
         <Text style={[s.allImagesCount, { color: colors.inkDim }]}>
-          {displayItems.length}
+          {displayItems.length.toLocaleString()}
         </Text>
       </View>
     </View>
@@ -303,7 +309,7 @@ export default function CollectionDetailScreen() {
           }}
           style={({ pressed }) => [
             s.gridCard,
-            { borderRadius: radius.grid },
+            { borderRadius: radius.grid, backgroundColor: isDark ? '#141416' : '#E5E5EA' },
             pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
           ]}
         >
@@ -311,9 +317,11 @@ export default function CollectionDetailScreen() {
             source={{ uri: item.uri }}
             style={[s.gridThumb, { borderRadius: radius.grid }]}
             contentFit="cover"
-            transition={150}
-            priority="high"
+            transition={100}
+            priority="normal"
             cachePolicy="memory-disk"
+            recyclingKey={item.id}
+            placeholder={isDark ? '#1C1C1E' : '#E5E5EA'}
           />
 
           {/* Selection Checkmark Badge */}
@@ -349,6 +357,8 @@ export default function CollectionDetailScreen() {
         keyExtractor={(item) => item.id}
         numColumns={NUM_COLUMNS}
         estimatedItemSize={ITEM_WIDTH * 1.35}
+        drawDistance={width * 1.5}
+        removeClippedSubviews={true}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 32),
@@ -620,8 +630,12 @@ const s = StyleSheet.create({
   heroImage: {
     ...StyleSheet.absoluteFillObject,
   },
-  vignetteOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  topScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
   },
   topNavRow: {
     flexDirection: 'row',
