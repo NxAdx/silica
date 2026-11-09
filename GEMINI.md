@@ -12,7 +12,7 @@
 ## 0. Ground-Truth Visual Specification (STRICT ANTI-SLOP RULE)
 The exact, pixel-perfect design system for this app has been supplied by the lead developer and is permanently saved in:
 * **`docs/ui design (1).jpg`** (Screen 1: Home View with Dual Hero Cards, Recent/Trips Carousels, and Liquid Glass Floating Nav Capsule)
-* **`docs/ui design (2).jpg`** (Screen 2: Collection Detail View with Hero Vignette, `Clean âœ¨` pill, and 3-Column Squircle Photo Grid)
+* **`docs/ui design (2).jpg`** (Screen 2: Collection Detail View with Hero Vignette, `Clean Ã¢Å“Â¨` pill, and 3-Column Squircle Photo Grid)
 
 > [!IMPORTANT]
 > **ANY AI AGENT WORKING ON THIS CODEBASE MUST MATCH THESE TWO IMAGES EXACTLY.**
@@ -28,9 +28,9 @@ Every line of UI and UX in Silica MUST adhere to these non-negotiables:
    - Hero Cards: `borderRadius: 24`, `borderCurve: 'continuous'`.
    - Grid Images: `borderRadius: 16`, `borderCurve: 'continuous'`.
    - Floating Nav Capsule: `height: 54`, `borderRadius: 27`, `borderCurve: 'continuous'`.
-   - Action Pills (`Clean âœ¨`, `Select`): `borderRadius: 18`, `borderCurve: 'continuous'`.
+   - Action Pills (`Clean Ã¢Å“Â¨`, `Select`): `borderRadius: 18`, `borderCurve: 'continuous'`.
 2. **Tabular Numerals Everywhere**:
-   - All counters, file sizes, percentages, and dates (`526 â€¢ 2.6GB`, `146 >`, `1.256`, `16%`, `25 Oct 2025`) MUST include `fontVariant: ['tabular-nums']` to stop layout shifting during scrolling.
+   - All counters, file sizes, percentages, and dates (`526 Ã¢â‚¬Â¢ 2.6GB`, `146 >`, `1.256`, `16%`, `25 Oct 2025`) MUST include `fontVariant: ['tabular-nums']` to stop layout shifting during scrolling.
 3. **Dual Themes from Frame 0**:
    - **Light Mode**: Pristine optical canvas `#FFFFFF`, cards `#F6F6F8`, charcoal ink `#111113`, translucent white glass `rgba(255,255,255,0.78)`.
    - **Dark Mode**: True pitch OLED black `#000000`, elevated cards `#141416`, crisp white ink `#FFFFFF`, translucent dark glass `rgba(25,25,28,0.82)`.
@@ -82,4 +82,24 @@ Every agent working in this repository MUST apply these installed skills:
 > * `.agents/` (rules and skills)
 > * Keystores (`*.keystore`, `*.jks`, `keystore_base64.txt`)
 > * `google-services.json`
+
+---
+
+## Mandatory Ecosystem Directive: Check and Use All Skills & REA
+
+Every AI agent working in this repository MUST observe this mandate:
+
+1. **Check and Execute All Installed Skills**:
+   - Inspect .agents/skills/ and global skill harnesses (~/.agents/skills/, ~/.gemini/skills/) before designing, refactoring, or writing code.
+   - **hallmark** (
+utlope/hallmark): Run /hallmark design guidance, adhere to Floor/Reflex/Finish gates, and verify layout integrity using sloplint.mjs.
+   - **impeccable** (pbakaus/impeccable): Execute deterministic anti-slop scans (impeccable detect) and apply design vocabulary commands (polish, older, quieter, critique, udit, harden, 	ypeset, layout).
+   - **pple-design & ppllama-app-design-skill**: Enforce continuous squircle borders (orderCurve: 'continuous'), tabular numerals (ontVariant: ['tabular-nums']), dual-theme palette tokens, and fluid haptics.
+   - **eact-native-best-practices**: Optimize list rendering with @shopify/flash-list, memoize selectors, and prevent memory leaks.
+   - **expo-router, expo-animation, nimate-expo, expo-module, greenlight, mobile-native, ndroid-updater-patterns**: Follow idiomatic patterns for navigation, 60fps UI-thread worklets, native Kotlin modules, and store compliance.
+
+2. **Actively Leverage REA (Reverse Engineer Anything)**:
+   - Primary REA Engine: Located at D:\Production\rea with reference APKs in D:\Production\rea\apks/.
+   - Before building new complex systems, inspect decompiled reference APKs (Photos.apk, system launchers, productivity apps) for ground-truth schema definitions, MediaStore query projections, notification lifecycle hooks, and native service configurations.
+   - Follow D:\Production\docs\REVERSE_ENGINEERING_PLAYBOOK.md to extract production-tested architectures instead of improvising.
 
