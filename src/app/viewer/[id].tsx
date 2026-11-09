@@ -67,8 +67,8 @@ export default function PhotoViewerScreen() {
 
   if (!currentItem) {
     return (
-      <View style={[s.container, { backgroundColor: '#000000' }]}>
-        <Text style={{ color: '#FFFFFF' }}>Photo not found</Text>
+      <View style={[s.container, { backgroundColor: colors.bg }]}>
+        <Text style={{ color: colors.ink }}>Photo not found</Text>
       </View>
     );
   }
@@ -420,8 +420,8 @@ export default function PhotoViewerScreen() {
                 pressed && { opacity: 0.6, transform: [{ scale: 0.92 }] },
               ]}
             >
-              <Ionicons name="trash-outline" size={20} color="#FF453A" />
-              <Text style={[s.actionLabel, { color: '#FF453A' }]}>Delete</Text>
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text style={[s.actionLabel, { color: colors.danger }]}>Delete</Text>
             </Pressable>
           </ScrollView>
         </BlurView>
@@ -442,7 +442,7 @@ export default function PhotoViewerScreen() {
             style={[
               s.editModalSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -472,7 +472,7 @@ export default function PhotoViewerScreen() {
                 disabled={isProcessingEdit}
                 style={({ pressed }) => [
                   s.toolBtn,
-                  { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' },
+                  { backgroundColor: colors.btnBg },
                   pressed && { opacity: 0.7 },
                 ]}
               >
@@ -485,7 +485,7 @@ export default function PhotoViewerScreen() {
                 disabled={isProcessingEdit}
                 style={({ pressed }) => [
                   s.toolBtn,
-                  { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' },
+                  { backgroundColor: colors.btnBg },
                   pressed && { opacity: 0.7 },
                 ]}
               >
@@ -498,7 +498,7 @@ export default function PhotoViewerScreen() {
                 disabled={isProcessingEdit}
                 style={({ pressed }) => [
                   s.toolBtn,
-                  { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' },
+                  { backgroundColor: colors.btnBg },
                   pressed && { opacity: 0.7 },
                 ]}
               >
@@ -543,7 +543,7 @@ export default function PhotoViewerScreen() {
             style={[
               s.tagModalSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -571,7 +571,7 @@ export default function PhotoViewerScreen() {
                 style={[
                   s.tagTextInput,
                   {
-                    backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
+                    backgroundColor: colors.btnBg,
                     color: colors.ink,
                   },
                 ]}
@@ -598,7 +598,7 @@ export default function PhotoViewerScreen() {
                     style={[
                       s.tagChip,
                       {
-                        backgroundColor: isDark ? '#2C2C2E' : '#EFEFF4',
+                        backgroundColor: colors.btnBg,
                         borderColor: colors.stroke,
                       },
                     ]}
@@ -639,7 +639,7 @@ export default function PhotoViewerScreen() {
             style={[
               s.modalSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -648,7 +648,7 @@ export default function PhotoViewerScreen() {
               <Text
                 style={[
                   s.modalTitle,
-                  { color: isDark ? '#FFFFFF' : '#000000' },
+                  { color: colors.ink },
                 ]}
               >
                 Photo Details
@@ -657,7 +657,7 @@ export default function PhotoViewerScreen() {
                 <Ionicons
                   name="close-circle"
                   size={24}
-                  color={isDark ? '#8E8E93' : '#AEAEB2'}
+                  color={colors.inkDim}
                 />
               </Pressable>
             </View>
@@ -667,7 +667,7 @@ export default function PhotoViewerScreen() {
               <Text
                 style={[
                   s.infoVal,
-                  { color: isDark ? '#FFFFFF' : '#000000' },
+                  { color: colors.ink },
                 ]}
               >
                 {currentItem.filename}
@@ -679,7 +679,7 @@ export default function PhotoViewerScreen() {
               <Text
                 style={[
                   s.infoVal,
-                  { color: isDark ? '#FFFFFF' : '#000000' },
+                  { color: colors.ink },
                 ]}
               >
                 {currentItem.width} × {currentItem.height} px
@@ -691,7 +691,7 @@ export default function PhotoViewerScreen() {
               <Text
                 style={[
                   s.infoVal,
-                  { color: isDark ? '#FFFFFF' : '#000000' },
+                  { color: colors.ink },
                 ]}
               >
                 {currentItem.formattedSize || '2.4 MB'}
@@ -703,7 +703,7 @@ export default function PhotoViewerScreen() {
               <Text
                 style={[
                   s.infoVal,
-                  { color: isDark ? '#FFFFFF' : '#000000' },
+                  { color: colors.ink },
                 ]}
               >
                 {new Date(currentItem.creationTime).toLocaleString()}
@@ -721,7 +721,7 @@ export default function PhotoViewerScreen() {
                       style={[
                         s.tagChip,
                         {
-                          backgroundColor: isDark ? '#2C2C2E' : '#EFEFF4',
+                          backgroundColor: colors.btnBg,
                         },
                       ]}
                     >

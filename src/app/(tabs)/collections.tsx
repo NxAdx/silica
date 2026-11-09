@@ -112,7 +112,7 @@ export default function CollectionsTab() {
               }}
               style={({ pressed }) => [
                 s.actionBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                { backgroundColor: colors.btnBg },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Search"
@@ -131,7 +131,7 @@ export default function CollectionsTab() {
               }}
               style={({ pressed }) => [
                 s.actionBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                { backgroundColor: colors.btnBg },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="New Collection"
@@ -148,7 +148,7 @@ export default function CollectionsTab() {
               style={[
                 s.searchBar,
                 {
-                  backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
+                  backgroundColor: colors.btnBg,
                   borderRadius: radius.hero,
                 },
               ]}
@@ -202,9 +202,7 @@ export default function CollectionsTab() {
                         {
                           backgroundColor: isSelected
                             ? colors.ink
-                            : isDark
-                            ? '#1C1C1E'
-                            : '#F2F2F7',
+                            : colors.btnBg,
                         },
                         pressed && { opacity: 0.8 },
                       ]}
@@ -264,11 +262,11 @@ export default function CollectionsTab() {
                       priority="normal"
                       cachePolicy="memory-disk"
                       recyclingKey={item.id}
-                      placeholder={isDark ? '#141416' : '#E5E5EA'}
+                      placeholder={colors.gridPlaceholder}
                     />
                     {item.isFavorite && (
                       <View style={s.favBadge}>
-                        <Ionicons name="heart" size={11} color="#FF3B30" />
+                        <Ionicons name="heart" size={11} color={colors.danger} />
                       </View>
                     )}
                   </Pressable>
@@ -305,9 +303,7 @@ export default function CollectionsTab() {
                         {
                           backgroundColor: isSelected
                             ? colors.ink
-                            : isDark
-                            ? '#1C1C1E'
-                            : '#F2F2F7',
+                            : colors.btnBg,
                         },
                         pressed && { opacity: 0.8 },
                       ]}
@@ -354,7 +350,7 @@ export default function CollectionsTab() {
                     priority="normal"
                     cachePolicy="memory-disk"
                     recyclingKey={item.id}
-                    placeholder={isDark ? '#141416' : '#E5E5EA'}
+                    placeholder={colors.gridPlaceholder}
                   />
                   <Text
                     style={[s.cardTitle, { color: colors.ink }]}
@@ -390,7 +386,7 @@ export default function CollectionsTab() {
             style={[
               s.createSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -407,7 +403,7 @@ export default function CollectionsTab() {
                 s.modalInput,
                 {
                   color: colors.ink,
-                  backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
+                  backgroundColor: colors.btnBg,
                   borderRadius: radius.sm,
                 },
               ]}
@@ -587,6 +583,8 @@ const s = StyleSheet.create({
   searchGridThumb: {
     width: '100%',
     height: '100%',
+    borderRadius: 16,
+    borderCurve: 'continuous',
   },
   favBadge: {
     position: 'absolute',

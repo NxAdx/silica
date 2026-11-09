@@ -29,8 +29,8 @@ import {
 const { width } = Dimensions.get('window');
 const COLUMN_GAP = 10;
 const NUM_COLUMNS = 3;
-const ITEM_WIDTH = (width - 40 - COLUMN_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
-const ITEM_HEIGHT = ITEM_WIDTH * 1.32;
+const ITEM_WIDTH = Math.floor(width / NUM_COLUMNS - 20);
+const ITEM_HEIGHT = Math.floor(ITEM_WIDTH * 1.30);
 
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -333,7 +333,7 @@ export default function CollectionDetailScreen() {
               borderColor: isDark
                 ? 'rgba(255, 255, 255, 0.14)'
                 : 'rgba(0, 0, 0, 0.08)',
-              backgroundColor: isDark ? '#1C1C1E' : '#F6F6F8',
+              backgroundColor: colors.card,
             },
             pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
           ]}
@@ -360,10 +360,22 @@ export default function CollectionDetailScreen() {
     </View>
   );
 
-  const renderGridItem = ({ item }: { item: any }) => {
+  const renderGridItem = ({ item, index }: { item: any; index: number }) => {
     const isSelected = selectedIds.has(item.id);
+    const col = index % NUM_COLUMNS;
+
     return (
-      <View style={s.gridCellWrapper}>
+      <View
+        style={[
+          s.gridCellWrapper,
+          {
+            alignItems:
+              col === 0 ? 'flex-start' : col === 1 ? 'center' : 'flex-end',
+            paddingLeft: col === 0 ? 20 : 0,
+            paddingRight: col === 2 ? 20 : 0,
+          },
+        ]}
+      >
         <Pressable
           onPress={() => {
             if (isSelectMode) {
@@ -375,8 +387,10 @@ export default function CollectionDetailScreen() {
           style={({ pressed }) => [
             s.gridCard,
             {
+              width: ITEM_WIDTH,
+              height: ITEM_HEIGHT,
               borderRadius: radius.grid,
-              backgroundColor: isDark ? '#141416' : '#E5E5EA',
+              backgroundColor: colors.gridPlaceholder,
             },
             pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
           ]}
@@ -393,7 +407,7 @@ export default function CollectionDetailScreen() {
             priority="normal"
             cachePolicy="memory-disk"
             recyclingKey={item.id}
-            placeholder={isDark ? '#1C1C1E' : '#E5E5EA'}
+            placeholder={colors.gridPlaceholder}
           />
 
           {/* Selection Checkmark Badge */}
@@ -444,7 +458,7 @@ export default function CollectionDetailScreen() {
           style={[
             s.batchActionBar,
             {
-              backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+              backgroundColor: colors.sheetBg,
               borderColor: colors.stroke,
               bottom: Math.max(insets.bottom, 20) + 12,
             },
@@ -476,7 +490,7 @@ export default function CollectionDetailScreen() {
               style={s.batchIconBtn}
               accessibilityLabel="Delete selected"
             >
-              <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
             </Pressable>
           </View>
         </View>
@@ -497,7 +511,7 @@ export default function CollectionDetailScreen() {
             style={[
               s.cleanSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -526,7 +540,7 @@ export default function CollectionDetailScreen() {
                   style={[
                     s.statsBanner,
                     {
-                      backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
+                      backgroundColor: colors.btnBg,
                       borderRadius: radius.sm,
                     },
                   ]}
@@ -609,7 +623,7 @@ export default function CollectionDetailScreen() {
             style={[
               s.sortSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -702,7 +716,7 @@ const s = StyleSheet.create({
   },
   heroWrapper: {
     width: '100%',
-    height: 330,
+    height: 360,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -803,14 +817,10 @@ const s = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   gridCellWrapper: {
-    flex: 1 / NUM_COLUMNS,
-    padding: COLUMN_GAP / 2,
-    paddingHorizontal: COLUMN_GAP / 2,
-    marginBottom: 6,
+    flex: 1,
+    marginBottom: 10,
   },
   gridCard: {
-    width: '100%',
-    height: ITEM_HEIGHT,
     overflow: 'hidden',
     borderCurve: 'continuous',
     position: 'relative',

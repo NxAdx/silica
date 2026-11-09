@@ -192,7 +192,7 @@ export default function VaultTab() {
               onPress={handleResetPin}
               style={({ pressed }) => [
                 s.actionBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                { backgroundColor: colors.btnBg },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Reset PIN"
@@ -204,7 +204,7 @@ export default function VaultTab() {
               onPress={() => lockVault()}
               style={({ pressed }) => [
                 s.actionBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                { backgroundColor: colors.btnBg },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Lock Vault"
@@ -221,7 +221,7 @@ export default function VaultTab() {
           <View
             style={[
               s.lockIconWrapper,
-              { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+              { backgroundColor: colors.btnBg },
             ]}
           >
             <Ionicons
@@ -237,7 +237,7 @@ export default function VaultTab() {
             />
           </View>
 
-          <Text style={[s.lockedTitle, { color: pinError ? '#FF3B30' : colors.ink }]}>
+          <Text style={[s.lockedTitle, { color: pinError ? colors.danger : colors.ink }]}>
             {!hasCustomPin
               ? setupStep === 'create'
                 ? 'Create Security PIN'
@@ -267,10 +267,10 @@ export default function VaultTab() {
                   style={[
                     s.dot,
                     {
-                      borderColor: pinError ? '#FF3B30' : colors.ink,
+                      borderColor: pinError ? colors.danger : colors.ink,
                       backgroundColor: isFilled
                         ? pinError
-                          ? '#FF3B30'
+                          ? colors.danger
                           : colors.ink
                         : 'transparent',
                     },
@@ -300,7 +300,7 @@ export default function VaultTab() {
                         onPress={handleBiometricPress}
                         style={({ pressed }) => [
                           s.keypadBtn,
-                          { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                          { backgroundColor: colors.btnBg },
                           pressed && { opacity: 0.6, transform: [{ scale: 0.94 }] },
                         ]}
                         accessibilityLabel="Unlock with Fingerprint"
@@ -316,7 +316,7 @@ export default function VaultTab() {
                         onPress={handleBackspace}
                         style={({ pressed }) => [
                           s.keypadBtn,
-                          { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                          { backgroundColor: colors.btnBg },
                           pressed && { opacity: 0.6, transform: [{ scale: 0.94 }] },
                         ]}
                         accessibilityLabel="Backspace"
@@ -331,7 +331,7 @@ export default function VaultTab() {
                       onPress={() => handleDigitPress(item)}
                       style={({ pressed }) => [
                         s.keypadBtn,
-                        { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                        { backgroundColor: colors.btnBg },
                         pressed && { opacity: 0.6, transform: [{ scale: 0.94 }] },
                       ]}
                     >
@@ -376,7 +376,7 @@ export default function VaultTab() {
               style={({ pressed }) => [
                 s.addPhotosBtn,
                 {
-                  backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
+                  backgroundColor: colors.btnBg,
                   borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
                 },
                 pressed && { opacity: 0.8 },
@@ -410,7 +410,7 @@ export default function VaultTab() {
                     transition={100}
                     priority="normal"
                     cachePolicy="memory-disk"
-                    placeholder={isDark ? '#141416' : '#E5E5EA'}
+                    placeholder={colors.gridPlaceholder}
                   />
                   {/* Lock Badge in Upper Right Corner */}
                   <View style={s.vaultBadge}>
@@ -431,7 +431,7 @@ export default function VaultTab() {
                 No Hidden Photos
               </Text>
               <Text style={[s.emptySub, { color: colors.inkDim }]}>
-                Tap "Hide Photos" above or tap "Hide" in the photo viewer to lock private photos behind PIN and fingerprint security.
+                Tap “Hide Photos” above or tap “Hide” in the photo viewer to lock private photos behind PIN and fingerprint security.
               </Text>
             </View>
           )}
@@ -453,7 +453,7 @@ export default function VaultTab() {
             style={[
               s.pickerSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
@@ -648,6 +648,8 @@ const s = StyleSheet.create({
   gridThumb: {
     width: '100%',
     height: '100%',
+    borderRadius: 16,
+    borderCurve: 'continuous',
   },
   vaultBadge: {
     position: 'absolute',

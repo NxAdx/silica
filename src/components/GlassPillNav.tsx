@@ -22,7 +22,7 @@ const THUMB_PADDING_OFFSET = (TAB_WIDTH - THUMB_WIDTH) / 2;
 export function GlassPillNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
 
   // Determine active index
   let activeIndex = 0;
@@ -113,7 +113,7 @@ export function GlassPillNav() {
           style={[
             s.thumb,
             {
-              backgroundColor: isDark ? '#FFFFFF' : '#111113',
+              backgroundColor: colors.ink,
             },
             thumbAnimatedStyle,
           ]}
@@ -141,9 +141,7 @@ export function GlassPillNav() {
                   size={21}
                   color={
                     isActive
-                      ? isDark
-                        ? '#111113'
-                        : '#FFFFFF'
+                      ? colors.bg
                       : isDark
                       ? 'rgba(255, 255, 255, 0.55)'
                       : 'rgba(0, 0, 0, 0.5)'

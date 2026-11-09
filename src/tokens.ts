@@ -16,6 +16,11 @@ export interface ThemeColors {
   badgeText: string;
   pillBg: string;
   pillBorder: string;
+  btnBg: string;
+  sheetBg: string;
+  danger: string;
+  dangerBg: string;
+  gridPlaceholder: string;
 }
 
 export const themes: { light: ThemeColors; dark: ThemeColors } = {
@@ -35,6 +40,11 @@ export const themes: { light: ThemeColors; dark: ThemeColors } = {
     badgeText: '#FFFFFF',
     pillBg: 'rgba(240, 240, 243, 0.9)',
     pillBorder: '#E5E5EA',
+    btnBg: '#F2F2F7',
+    sheetBg: '#FFFFFF',
+    danger: '#FF3B30',
+    dangerBg: 'rgba(255, 59, 48, 0.12)',
+    gridPlaceholder: '#E5E5EA',
   },
   dark: {
     bg: '#000000',
@@ -52,6 +62,11 @@ export const themes: { light: ThemeColors; dark: ThemeColors } = {
     badgeText: '#FFFFFF',
     pillBg: 'rgba(28, 28, 30, 0.9)',
     pillBorder: '#2C2C2E',
+    btnBg: '#1C1C1E',
+    sheetBg: '#1C1C1E',
+    danger: '#FF453A',
+    dangerBg: 'rgba(255, 69, 58, 0.15)',
+    gridPlaceholder: '#141416',
   },
 };
 

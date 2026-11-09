@@ -82,7 +82,7 @@ export default function HomeScreen() {
               }}
               style={({ pressed }) => [
                 s.sortBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                { backgroundColor: colors.btnBg },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Toggle Dark/Light Theme"
@@ -98,7 +98,7 @@ export default function HomeScreen() {
               onPress={handleSortPress}
               style={({ pressed }) => [
                 s.sortBtn,
-                { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
+                { backgroundColor: colors.btnBg },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Sort collections"
@@ -114,7 +114,7 @@ export default function HomeScreen() {
             style={[
               s.permissionCard,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#F6F6F8',
+                backgroundColor: colors.card,
                 borderRadius: radius.hero,
                 borderColor: colors.stroke,
               },
@@ -162,7 +162,7 @@ export default function HomeScreen() {
             style={[
               s.emptyHero,
               {
-                backgroundColor: isDark ? '#141416' : '#F6F6F8',
+                backgroundColor: colors.card,
                 borderRadius: radius.hero,
               },
             ]}
@@ -224,7 +224,7 @@ export default function HomeScreen() {
                     priority="normal"
                     cachePolicy="memory-disk"
                     recyclingKey={item.id}
-                    placeholder={isDark ? '#141416' : '#E5E5EA'}
+                    placeholder={colors.gridPlaceholder}
                   />
                   {renderSplitDate(item.dateLabel)}
                   <Text
@@ -286,7 +286,7 @@ export default function HomeScreen() {
                     priority="normal"
                     cachePolicy="memory-disk"
                     recyclingKey={item.id}
-                    placeholder={isDark ? '#141416' : '#E5E5EA'}
+                    placeholder={colors.gridPlaceholder}
                   />
                   <Text
                     style={[s.recentDate, { color: colors.ink, fontWeight: '700' }]}
@@ -322,7 +322,7 @@ export default function HomeScreen() {
             style={[
               s.sortSheet,
               {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                backgroundColor: colors.sheetBg,
                 borderRadius: radius.hero,
               },
             ]}
