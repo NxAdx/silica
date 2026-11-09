@@ -24,16 +24,6 @@ export function GlassPillNav() {
   const pathname = usePathname();
   const { isDark } = useTheme();
 
-  // Show on Home, Collections, Collection Detail, and Vault
-  const isVisibleScreen =
-    pathname === '/' ||
-    pathname === '/(tabs)' ||
-    pathname === '/collections' ||
-    pathname === '/(tabs)/collections' ||
-    pathname.startsWith('/collection') ||
-    pathname === '/vault' ||
-    pathname === '/(tabs)/vault';
-
   // Determine active index
   let activeIndex = 0;
   if (pathname.startsWith('/collection') || pathname.includes('collections')) {
@@ -51,6 +41,25 @@ export function GlassPillNav() {
       mass: 0.8,
     });
   }, [activeIndex, progress]);
+
+  const thumbAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: progress.value * TAB_WIDTH + THUMB_PADDING_OFFSET,
+      },
+    ],
+  }));
+
+  // Show on Home, Collections, Collection Detail, and Vault
+  // Hook calls must always run before any return statement!
+  const isVisibleScreen =
+    pathname === '/' ||
+    pathname === '/(tabs)' ||
+    pathname === '/collections' ||
+    pathname === '/(tabs)/collections' ||
+    pathname.startsWith('/collection') ||
+    pathname === '/vault' ||
+    pathname === '/(tabs)/vault';
 
   if (!isVisibleScreen) {
     return null;
@@ -81,14 +90,6 @@ export function GlassPillNav() {
     Haptics.selectionAsync();
     router.replace(route as any);
   };
-
-  const thumbAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: progress.value * TAB_WIDTH + THUMB_PADDING_OFFSET,
-      },
-    ],
-  }));
 
   return (
     <View style={s.outerContainer} pointerEvents="box-none">
