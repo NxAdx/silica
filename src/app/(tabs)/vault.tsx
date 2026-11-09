@@ -36,6 +36,7 @@ export default function VaultTab() {
   const verifyPin = useVaultStore((s) => s.verifyPin);
   const setPin = useVaultStore((s) => s.setPin);
   const authenticateWithBiometrics = useVaultStore((s) => s.authenticateWithBiometrics);
+  const resetPinWithDeviceAuth = useVaultStore((s) => s.resetPinWithDeviceAuth);
   const lockVault = useVaultStore((s) => s.lockVault);
   const removeFromVault = useVaultStore((s) => s.removeFromVault);
   const addToVault = useVaultStore((s) => s.addToVault);
@@ -47,8 +48,6 @@ export default function VaultTab() {
   const [setupStep, setSetupStep] = useState<'create' | 'confirm'>('create');
   const [firstEnteredPin, setFirstEnteredPin] = useState('');
   const [showAddPicker, setShowAddPicker] = useState(false);
-  const [showChangePinModal, setShowChangePinModal] = useState(false);
-  const [newPin, setNewPin] = useState('');
 
   useEffect(() => {
     checkHasPin();
@@ -102,6 +101,7 @@ export default function VaultTab() {
           }, 600);
         } else {
           setEnteredPin('');
+          setPinError(false);
         }
       }
     }
@@ -119,78 +119,93 @@ export default function VaultTab() {
     await authenticateWithBiometrics();
   };
 
-  const handleSaveNewPin = async () => {
-    if (newPin.length !== 4) {
-      Alert.alert('Invalid PIN', 'PIN must be exactly 4 digits.');
-      return;
-    }
-    await setPin(newPin);
-    setNewPin('');
-    setShowChangePinModal(false);
-    Alert.alert('PIN Updated', 'Your 4-digit vault PIN has been saved securely.');
-  };
-
-  const handleItemPress = (item: any) => {
+  const handleResetPin = async () => {
     Haptics.selectionAsync();
     Alert.alert(
-      item.filename || 'Vault Photo',
-      'Choose an action for this protected photo:',
+      'Reset Vault PIN',
+      'Authenticate with your device screen lock or fingerprint to reset your vault PIN.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Unhide (Restore to Gallery)',
+          text: 'Authenticate & Reset',
           onPress: async () => {
-            await removeFromVault(item.id);
-            Alert.alert('Restored', 'Photo restored to public gallery.');
+            const ok = await resetPinWithDeviceAuth();
+            if (ok) {
+              setEnteredPin('');
+              setFirstEnteredPin('');
+              setSetupStep('create');
+              Alert.alert('PIN Reset', 'Please choose a new 4-digit PIN for your vault.');
+            }
           },
         },
       ]
     );
   };
 
-  const handleAddPhotoToVault = async (item: any) => {
+  const handleItemPress = (item: any) => {
     Haptics.selectionAsync();
+    Alert.alert(
+      'Vault Photo Options',
+      item.filename,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unhide (Move to Gallery)',
+          onPress: async () => {
+            await removeFromVault(item.id);
+            Alert.alert('Restored', 'Photo restored to normal gallery.');
+          },
+        },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            await removeFromVault(item.id);
+            await deleteMediaItems([item.id]);
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePickToHide = async (item: any) => {
     await addToVault(item);
     await deleteMediaItems([item.id]);
     setShowAddPicker(false);
-    Alert.alert('Protected', 'Photo moved to Private Vault.');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   return (
-    <View
-      style={[
-        s.container,
-        {
-          backgroundColor: colors.bg,
-          paddingTop: Math.max(insets.top, 16),
-          paddingBottom: Math.max(insets.bottom, 20) + 84,
-        },
-      ]}
-    >
-      {/* Top Header matching docs/ui design and user spec */}
-      <View style={s.header}>
+    <View style={[s.root, { backgroundColor: colors.bg }]}>
+      {/* Top Header matching media_1794156067467_042c5f40.jpg */}
+      <View
+        style={[
+          s.header,
+          { paddingTop: Math.max(insets.top, 16) },
+        ]}
+      >
         <Text style={[s.title, { color: colors.ink }]}>Private Vault</Text>
 
         {isUnlocked && (
           <View style={s.headerActions}>
             <Pressable
-              onPress={() => setShowChangePinModal(true)}
+              onPress={handleResetPin}
               style={({ pressed }) => [
-                s.headerBtn,
+                s.actionBtn,
                 { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
-                pressed && { opacity: 0.7 },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
-              accessibilityLabel="Change PIN"
+              accessibilityLabel="Reset PIN"
             >
               <Ionicons name="key-outline" size={18} color={colors.ink} />
             </Pressable>
 
             <Pressable
-              onPress={lockVault}
+              onPress={() => lockVault()}
               style={({ pressed }) => [
-                s.headerBtn,
+                s.actionBtn,
                 { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' },
-                pressed && { opacity: 0.7 },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Lock Vault"
             >
@@ -327,13 +342,25 @@ export default function VaultTab() {
               </View>
             ))}
           </View>
+
+          {/* Reset PIN Option for easy recovery */}
+          {hasCustomPin && (
+            <Pressable
+              onPress={handleResetPin}
+              style={s.forgotBtn}
+            >
+              <Text style={[s.forgotBtnText, { color: colors.inkDim }]}>
+                Forgot PIN? Reset with Screen Lock
+              </Text>
+            </Pressable>
+          )}
         </View>
       ) : (
-        /* Unlocked State — Matching media_1794156067467_042c5f40.jpg */
+        /* Unlocked State — Matching docs/ui design (2).jpg */
         <ScrollView
           style={s.scrollView}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 115 }}
         >
           {/* Status Row with Checkmark Banner and + Hide Photos Pill */}
           <View style={s.unlockedBannerRow}>
@@ -350,7 +377,7 @@ export default function VaultTab() {
                 s.addPhotosBtn,
                 {
                   backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
-                  borderColor: colors.stroke,
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
                 },
                 pressed && { opacity: 0.8 },
               ]}
@@ -373,7 +400,11 @@ export default function VaultTab() {
                   ]}
                 >
                   <Image
-                    source={{ uri: item.uri }}
+                    source={{
+                      uri: item.uri,
+                      width: 320,
+                      height: 380,
+                    }}
                     style={s.gridThumb}
                     contentFit="cover"
                     transition={100}
@@ -437,25 +468,21 @@ export default function VaultTab() {
             </View>
 
             <ScrollView
-              style={{ maxHeight: 420 }}
-              contentContainerStyle={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 10,
-                paddingBottom: 20,
-              }}
+              contentContainerStyle={s.pickerGrid}
+              showsVerticalScrollIndicator={false}
             >
               {recentItems.map((item) => (
                 <Pressable
                   key={item.id}
-                  onPress={() => handleAddPhotoToVault(item)}
-                  style={({ pressed }) => [
-                    s.pickerThumbWrapper,
-                    pressed && { opacity: 0.8 },
-                  ]}
+                  onPress={() => handlePickToHide(item)}
+                  style={s.pickerCard}
                 >
                   <Image
-                    source={{ uri: item.uri }}
+                    source={{
+                      uri: item.uri,
+                      width: 200,
+                      height: 200,
+                    }}
                     style={s.pickerThumb}
                     contentFit="cover"
                   />
@@ -465,197 +492,82 @@ export default function VaultTab() {
           </View>
         </Pressable>
       </Modal>
-
-      {/* Change PIN Modal */}
-      <Modal
-        visible={showChangePinModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowChangePinModal(false)}
-      >
-        <Pressable
-          style={s.modalOverlay}
-          onPress={() => setShowChangePinModal(false)}
-        >
-          <View
-            style={[
-              s.changePinSheet,
-              {
-                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
-                borderRadius: radius.hero,
-              },
-            ]}
-          >
-            <Text style={[s.changePinTitle, { color: colors.ink }]}>
-              Set 4-Digit Security PIN
-            </Text>
-            <Text style={[s.changePinSub, { color: colors.inkDim }]}>
-              Enter a 4-digit code to protect your hidden photos.
-            </Text>
-
-            <View style={s.dotsRow}>
-              {[0, 1, 2, 3].map((idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    s.dot,
-                    {
-                      borderColor: colors.ink,
-                      backgroundColor:
-                        idx < newPin.length ? colors.ink : 'transparent',
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-
-            <View style={s.keypadContainer}>
-              {[
-                ['1', '2', '3'],
-                ['4', '5', '6'],
-                ['7', '8', '9'],
-                ['', '0', 'back'],
-              ].map((row, rIdx) => (
-                <View key={rIdx} style={s.keypadRow}>
-                  {row.map((item, cIdx) => {
-                    if (item === '') {
-                      return <View key={cIdx} style={s.keypadBtnPlaceholder} />;
-                    }
-                    if (item === 'back') {
-                      return (
-                        <Pressable
-                          key={item}
-                          onPress={() => {
-                            if (newPin.length > 0) setNewPin(newPin.slice(0, -1));
-                          }}
-                          style={({ pressed }) => [
-                            s.keypadBtn,
-                            { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' },
-                            pressed && { opacity: 0.6 },
-                          ]}
-                        >
-                          <Ionicons name="backspace-outline" size={20} color={colors.ink} />
-                        </Pressable>
-                      );
-                    }
-                    return (
-                      <Pressable
-                        key={item}
-                        onPress={() => {
-                          if (newPin.length < 4) {
-                            Haptics.selectionAsync();
-                            setNewPin(newPin + item);
-                          }
-                        }}
-                        style={({ pressed }) => [
-                          s.keypadBtn,
-                          { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' },
-                          pressed && { opacity: 0.6 },
-                        ]}
-                      >
-                        <Text style={[s.keypadText, { color: colors.ink }]}>{item}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-
-            {newPin.length === 4 && (
-              <Pressable
-                onPress={handleSaveNewPin}
-                style={[
-                  s.savePinBtn,
-                  { backgroundColor: colors.ink, borderRadius: radius.pill },
-                ]}
-              >
-                <Text style={[s.savePinText, { color: colors.bg }]}>
-                  Save New PIN
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
     marginBottom: 16,
-    marginTop: 8,
+    marginTop: 6,
   },
   title: {
     fontSize: 34,
     fontWeight: '800',
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  actionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderCurve: 'continuous',
     justifyContent: 'center',
     alignItems: 'center',
   },
   lockedContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: -20,
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingBottom: 80,
   },
   lockIconWrapper: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderCurve: 'continuous',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   lockedTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: 8,
     textAlign: 'center',
   },
   lockedSub: {
     fontSize: 13,
-    lineHeight: 18,
     textAlign: 'center',
-    marginBottom: 24,
-    maxWidth: 280,
+    marginBottom: 32,
+    lineHeight: 18,
+    paddingHorizontal: 20,
   },
   dotsRow: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 36,
   },
   dot: {
     width: 14,
     height: 14,
     borderRadius: 7,
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   keypadContainer: {
-    width: '100%',
-    maxWidth: 280,
+    width: 260,
     gap: 14,
   },
   keypadRow: {
@@ -676,17 +588,25 @@ const s = StyleSheet.create({
   },
   keypadText: {
     fontSize: 24,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    fontWeight: '600',
+  },
+  forgotBtn: {
+    marginTop: 24,
+    padding: 8,
+  },
+  forgotBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   unlockedBannerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 18,
+    marginBottom: 20,
   },
   unlockedBadge: {
     flexDirection: 'row',
@@ -696,17 +616,16 @@ const s = StyleSheet.create({
   unlockedBannerText: {
     fontSize: 13,
     fontWeight: '600',
-    fontVariant: ['tabular-nums'],
   },
   addPhotosBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 16,
     borderCurve: 'continuous',
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   addPhotosBtnText: {
     fontSize: 12,
@@ -720,32 +639,31 @@ const s = StyleSheet.create({
   gridCard: {
     width: ITEM_WIDTH,
     height: ITEM_WIDTH * 1.3,
-    borderRadius: 20,
-    overflow: 'hidden',
+    borderRadius: 16,
     borderCurve: 'continuous',
+    overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#E5E5EA',
+    backgroundColor: '#1E1E22',
   },
   gridThumb: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
   },
   vaultBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    top: 8,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyState: {
     paddingVertical: 80,
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
   },
   emptyTitle: {
     fontSize: 18,
@@ -754,70 +672,43 @@ const s = StyleSheet.create({
   },
   emptySub: {
     fontSize: 13,
-    lineHeight: 18,
     textAlign: 'center',
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   pickerSheet: {
+    maxHeight: '75%',
     padding: 24,
-    paddingBottom: 40,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
     borderCurve: 'continuous',
   },
   pickerHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
   pickerTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
-  pickerThumbWrapper: {
-    width: (width - 48 - 20) / 3,
-    height: (width - 48 - 20) / 3,
+  pickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingBottom: 20,
+  },
+  pickerCard: {
+    width: (width - 48 - 16) / 3,
+    height: (width - 48 - 16) / 3,
     borderRadius: 12,
     overflow: 'hidden',
   },
   pickerThumb: {
     width: '100%',
     height: '100%',
-  },
-  changePinSheet: {
-    padding: 28,
-    paddingBottom: 40,
-    marginHorizontal: 20,
-    alignSelf: 'center',
-    width: width - 40,
-    alignItems: 'center',
-  },
-  changePinTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  changePinSub: {
-    fontSize: 13,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  savePinBtn: {
-    marginTop: 20,
-    width: '100%',
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderCurve: 'continuous',
-  },
-  savePinText: {
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

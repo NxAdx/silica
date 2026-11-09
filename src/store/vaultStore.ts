@@ -18,6 +18,7 @@ interface VaultState {
   setPin: (pin: string) => Promise<void>;
   verifyPin: (pin: string) => Promise<boolean>;
   authenticateWithBiometrics: () => Promise<boolean>;
+  resetPinWithDeviceAuth: () => Promise<boolean>;
   lockVault: () => void;
   loadVaultItems: () => Promise<void>;
   addToVault: (item: MediaItem) => Promise<void>;
@@ -64,7 +65,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       const stored = await SecureStore.getItemAsync(VAULT_PIN_KEY);
       if (!stored) {
-        // No PIN has been configured yet
         return false;
       }
       if (inputPin === stored) {
@@ -87,7 +87,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
       if (!hasHardware || !isEnrolled) {
-        // Fallback to PIN
         return false;
       }
 
@@ -108,6 +107,25 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       return false;
     } catch (e) {
       console.warn('[VaultStore] Biometric auth error:', e);
+      return false;
+    }
+  },
+
+  resetPinWithDeviceAuth: async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to Reset Silica Vault PIN',
+        fallbackLabel: 'Cancel',
+      });
+      if (result.success) {
+        await SecureStore.deleteItemAsync(VAULT_PIN_KEY);
+        set({ hasCustomPin: false, isUnlocked: false });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[VaultStore] Reset auth error:', e);
       return false;
     }
   },

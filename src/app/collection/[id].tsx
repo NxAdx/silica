@@ -1,4 +1,4 @@
-// Silica — Screen 2: Collection Detail View with Clean Engine
+// Silica — Screen 2: Collection Detail View (Matching docs/ui design (2).jpg)
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Defs, LinearGradient as SvgGradient, Stop, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../../store/themeStore';
@@ -26,9 +27,10 @@ import {
 } from '../../services/cleanerService';
 
 const { width } = Dimensions.get('window');
-const COLUMN_GAP = 12;
+const COLUMN_GAP = 10;
 const NUM_COLUMNS = 3;
 const ITEM_WIDTH = (width - 40 - COLUMN_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const ITEM_HEIGHT = ITEM_WIDTH * 1.32;
 
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,7 +56,7 @@ export default function CollectionDetailScreen() {
   const addToVault = useVaultStore((s) => s.addToVault);
 
   const collectionItems = getCollectionItems(id || '');
-  const displayItems = (id && id !== 'all') ? collectionItems : allMediaItems;
+  const displayItems = id && id !== 'all' ? collectionItems : allMediaItems;
   const loadAlbumAssets = useMediaStore((s) => s.loadAlbumAssets);
 
   useEffect(() => {
@@ -100,23 +102,26 @@ export default function CollectionDetailScreen() {
       setShowCleanModal(false);
       return;
     }
-    const duplicateIdsToDelete = cleanResult.clusters.flatMap((c) =>
+    const duplicateIds = cleanResult.clusters.flatMap((c) =>
       c.duplicates.map((d) => d.id)
     );
-    await deleteMediaItems(duplicateIdsToDelete);
+    await deleteMediaItems(duplicateIds);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowCleanModal(false);
     Alert.alert(
       'Clean Complete',
-      `Freed ${cleanResult.formattedTotalRecoverable} by deleting ${duplicateIdsToDelete.length} redundant duplicate shots.`
+      `Recovered ${cleanResult.formattedTotalRecoverable} of storage.`
     );
   };
 
   const toggleSelect = (itemId: string) => {
     Haptics.selectionAsync();
     const next = new Set(selectedIds);
-    if (next.has(itemId)) next.delete(itemId);
-    else next.add(itemId);
+    if (next.has(itemId)) {
+      next.delete(itemId);
+    } else {
+      next.add(itemId);
+    }
     setSelectedIds(next);
   };
 
@@ -124,7 +129,7 @@ export default function CollectionDetailScreen() {
     if (selectedIds.size === 0) return;
     Alert.alert(
       'Delete Selected Photos',
-      `Are you sure you want to delete ${selectedIds.size} photo(s)?`,
+      `Permanently delete ${selectedIds.size} photo(s)?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -163,12 +168,34 @@ export default function CollectionDetailScreen() {
     }
   };
 
+  // Render split date title: Bold ink day+month, muted grey year
+  const renderCollectionTitle = (title: string) => {
+    const match = title.match(/^(\d{1,2}\s+[A-Za-z]+)\s+(\d{4})$/);
+    if (match) {
+      return (
+        <Text style={s.dateTitle} numberOfLines={1}>
+          <Text style={{ color: colors.ink, fontWeight: '800' }}>{match[1]} </Text>
+          <Text style={{ color: colors.inkDim, fontWeight: '400' }}>{match[2]}</Text>
+        </Text>
+      );
+    }
+    return (
+      <Text style={[s.dateTitle, { color: colors.ink }]} numberOfLines={1}>
+        {title}
+      </Text>
+    );
+  };
+
   const renderHeader = () => (
     <View>
-      {/* Hero Header with Vibrant Artwork & Top Controls Scrim */}
-      <View style={[s.heroWrapper, { backgroundColor: isDark ? '#141416' : '#E5E5EA' }]}>
+      {/* Full Bleed Hero Image with Signature White/Black Gradient Fade Vignette */}
+      <View style={[s.heroWrapper, { backgroundColor: colors.bg }]}>
         <Image
-          source={{ uri: resolvedCollection.coverUri || displayItems[0]?.uri }}
+          source={{
+            uri: resolvedCollection.coverUri || displayItems[0]?.uri,
+            width: 600,
+            height: 600,
+          }}
           style={s.heroImage}
           contentFit="cover"
           priority="high"
@@ -177,25 +204,40 @@ export default function CollectionDetailScreen() {
           transition={150}
         />
 
-        {/* Top Scrim for Status Bar & Navigation Controls */}
+        {/* Top Vignette Scrim for Status Bar */}
         <View
           style={[
             s.topScrim,
             {
               backgroundColor: isDark
-                ? 'rgba(0,0,0,0.35)'
-                : 'rgba(255,255,255,0.2)',
+                ? 'rgba(0,0,0,0.3)'
+                : 'rgba(255,255,255,0.1)',
             },
           ]}
         />
 
-        {/* Top navigation actions */}
+        {/* Bottom Smooth Vignette Gradient Fade into Canvas Background */}
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <SvgGradient id="heroBottomFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={colors.bg} stopOpacity="0" />
+              <Stop offset="0.45" stopColor={colors.bg} stopOpacity="0" />
+              <Stop offset="0.75" stopColor={colors.bg} stopOpacity="0.55" />
+              <Stop offset="0.92" stopColor={colors.bg} stopOpacity="0.9" />
+              <Stop offset="1.0" stopColor={colors.bg} stopOpacity="1" />
+            </SvgGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroBottomFade)" />
+        </Svg>
+
+        {/* Top Navigation Actions Row */}
         <View
           style={[
             s.topNavRow,
             { paddingTop: Math.max(insets.top, 16) },
           ]}
         >
+          {/* Back Circular Button */}
           <Pressable
             onPress={() => {
               if (router.canGoBack()) {
@@ -206,7 +248,14 @@ export default function CollectionDetailScreen() {
             }}
             style={({ pressed }) => [
               s.circleBtn,
-              { backgroundColor: isDark ? 'rgba(30,30,32,0.85)' : '#FFFFFF' },
+              {
+                backgroundColor: isDark
+                  ? 'rgba(30,30,34,0.85)'
+                  : 'rgba(255,255,255,0.9)',
+                borderColor: isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.06)',
+              },
               pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
             ]}
             accessibilityLabel="Back"
@@ -214,6 +263,7 @@ export default function CollectionDetailScreen() {
             <Ionicons name="chevron-back" size={20} color={colors.ink} />
           </Pressable>
 
+          {/* Right Actions: Sort + Select Pill */}
           <View style={s.topRightActions}>
             <Pressable
               onPress={() => {
@@ -222,7 +272,14 @@ export default function CollectionDetailScreen() {
               }}
               style={({ pressed }) => [
                 s.circleBtn,
-                { backgroundColor: isDark ? 'rgba(30,30,32,0.85)' : '#FFFFFF' },
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(30,30,34,0.85)'
+                    : 'rgba(255,255,255,0.9)',
+                  borderColor: isDark
+                    ? 'rgba(255,255,255,0.12)'
+                    : 'rgba(0,0,0,0.06)',
+                },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
               ]}
               accessibilityLabel="Sort"
@@ -242,8 +299,11 @@ export default function CollectionDetailScreen() {
                   backgroundColor: isSelectMode
                     ? colors.ink
                     : isDark
-                    ? 'rgba(30,30,32,0.85)'
-                    : '#FFFFFF',
+                    ? 'rgba(30,30,34,0.85)'
+                    : 'rgba(255,255,255,0.9)',
+                  borderColor: isDark
+                    ? 'rgba(255,255,255,0.12)'
+                    : 'rgba(0,0,0,0.06)',
                 },
                 pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
               ]}
@@ -261,29 +321,34 @@ export default function CollectionDetailScreen() {
         </View>
       </View>
 
-      {/* Collection Title & The Signature Clean Pill Matching docs/ui design (2).jpg */}
+      {/* Collection Title Row & Clean ✨ Pill Button */}
       <View style={s.metaSection}>
-        <Text style={[s.dateTitle, { color: colors.ink }]}>
-          {resolvedCollection.name || resolvedCollection.dateLabel}
-        </Text>
+        {renderCollectionTitle(resolvedCollection.name || resolvedCollection.dateLabel)}
 
         <Pressable
           onPress={handleCleanScan}
           style={({ pressed }) => [
             s.cleanPill,
             {
-              borderColor: colors.stroke,
+              borderColor: isDark
+                ? 'rgba(255, 255, 255, 0.14)'
+                : 'rgba(0, 0, 0, 0.08)',
               backgroundColor: isDark ? '#1C1C1E' : '#F6F6F8',
             },
             pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
           ]}
         >
           <Text style={[s.cleanText, { color: colors.ink }]}>Clean</Text>
-          <Ionicons name="sparkles" size={13} color={colors.ink} style={{ marginLeft: 5 }} />
+          <Ionicons
+            name="sparkles"
+            size={13}
+            color={colors.ink}
+            style={{ marginLeft: 5 }}
+          />
         </Pressable>
       </View>
 
-      {/* All Images Section Header with dynamic count */}
+      {/* All Images Section Header with Tabular Count */}
       <View style={s.allImagesHeader}>
         <Text style={[s.allImagesTitle, { color: colors.ink }]}>
           All Images
@@ -309,12 +374,19 @@ export default function CollectionDetailScreen() {
           }}
           style={({ pressed }) => [
             s.gridCard,
-            { borderRadius: radius.grid, backgroundColor: isDark ? '#141416' : '#E5E5EA' },
+            {
+              borderRadius: radius.grid,
+              backgroundColor: isDark ? '#141416' : '#E5E5EA',
+            },
             pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
           ]}
         >
           <Image
-            source={{ uri: item.uri }}
+            source={{
+              uri: item.uri,
+              width: 240,
+              height: 320,
+            }}
             style={[s.gridThumb, { borderRadius: radius.grid }]}
             contentFit="cover"
             transition={100}
@@ -356,12 +428,12 @@ export default function CollectionDetailScreen() {
         renderItem={renderGridItem}
         keyExtractor={(item) => item.id}
         numColumns={NUM_COLUMNS}
-        estimatedItemSize={ITEM_WIDTH * 1.35}
+        estimatedItemSize={ITEM_HEIGHT}
         drawDistance={width * 1.5}
         removeClippedSubviews={true}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 32),
+          paddingBottom: Math.max(insets.bottom, 20) + (isSelectMode ? 100 : 105),
         }}
         showsVerticalScrollIndicator={false}
       />
@@ -374,7 +446,7 @@ export default function CollectionDetailScreen() {
             {
               backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
               borderColor: colors.stroke,
-              bottom: Math.max(insets.bottom, 20) + 10,
+              bottom: Math.max(insets.bottom, 20) + 12,
             },
           ]}
         >
@@ -410,7 +482,7 @@ export default function CollectionDetailScreen() {
         </View>
       )}
 
-      {/* Clean Interactive Storage Cleaner Modal */}
+      {/* Offline Storage Cleaner Modal */}
       <Modal
         visible={showCleanModal}
         transparent
@@ -475,7 +547,7 @@ export default function CollectionDetailScreen() {
                   {cleanResult.clusters.slice(0, 3).map((c) => (
                     <View key={c.id} style={s.clusterCard}>
                       <Image
-                        source={{ uri: c.original.uri }}
+                        source={{ uri: c.original.uri, width: 120, height: 120 }}
                         style={[s.clusterThumb, { borderRadius: radius.sm }]}
                       />
                       <View style={s.bestBadge}>
@@ -498,14 +570,23 @@ export default function CollectionDetailScreen() {
                   ]}
                 >
                   <Text style={[s.executeCleanText, { color: colors.bg }]}>
-                    Clean Duplicates (Free {cleanResult.formattedTotalRecoverable})
+                    Clean Duplicate Shots
                   </Text>
                 </Pressable>
               </View>
             ) : (
-              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '600' }}>
-                  Your gallery is already clean!
+              <View style={s.noDuplicatesBox}>
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={48}
+                  color="#34C759"
+                  style={{ marginBottom: 12 }}
+                />
+                <Text style={[s.noDuplicatesTitle, { color: colors.ink }]}>
+                  Library is Perfectly Optimized
+                </Text>
+                <Text style={[s.noDuplicatesSub, { color: colors.inkDim }]}>
+                  No duplicate or unnecessary burst photos found in this collection.
                 </Text>
               </View>
             )}
@@ -513,7 +594,7 @@ export default function CollectionDetailScreen() {
         </Pressable>
       </Modal>
 
-      {/* Sort Order Selector Modal */}
+      {/* Sort Options Modal */}
       <Modal
         visible={showSortModal}
         transparent
@@ -533,8 +614,8 @@ export default function CollectionDetailScreen() {
               },
             ]}
           >
-            <Text style={[s.sortSheetTitle, { color: colors.ink }]}>
-              Sort Photos
+            <Text style={[s.sortTitle, { color: colors.ink }]}>
+              Sort Collection
             </Text>
 
             <Pressable
@@ -619,13 +700,11 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
   heroWrapper: {
     width: '100%',
-    height: 320,
+    height: 330,
     position: 'relative',
+    overflow: 'hidden',
   },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
@@ -635,7 +714,7 @@ const s = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: 110,
   },
   topNavRow: {
     flexDirection: 'row',
@@ -649,13 +728,14 @@ const s = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderCurve: 'continuous',
+    borderWidth: 0.6,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 3,
   },
   topRightActions: {
     flexDirection: 'row',
@@ -667,13 +747,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 20,
     borderCurve: 'continuous',
+    borderWidth: 0.6,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 3,
   },
   selectText: {
     fontSize: 14,
@@ -684,12 +765,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 24,
+    marginTop: 18,
+    marginBottom: 20,
   },
   dateTitle: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 27,
     letterSpacing: -0.6,
   },
   cleanPill: {
@@ -699,7 +779,7 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 18,
     borderCurve: 'continuous',
-    borderWidth: 1,
+    borderWidth: 0.8,
   },
   cleanText: {
     fontSize: 13,
@@ -710,7 +790,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   allImagesTitle: {
     fontSize: 18,
@@ -722,29 +802,23 @@ const s = StyleSheet.create({
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: COLUMN_GAP,
-    paddingHorizontal: 20,
-  },
   gridCellWrapper: {
+    flex: 1 / NUM_COLUMNS,
+    padding: COLUMN_GAP / 2,
     paddingHorizontal: COLUMN_GAP / 2,
-    marginBottom: COLUMN_GAP,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 6,
   },
   gridCard: {
-    width: ITEM_WIDTH,
-    height: ITEM_WIDTH * 1.35,
+    width: '100%',
+    height: ITEM_HEIGHT,
     overflow: 'hidden',
     borderCurve: 'continuous',
     position: 'relative',
-    backgroundColor: '#E5E5EA',
   },
   gridThumb: {
     width: '100%',
     height: '100%',
+    borderCurve: 'continuous',
   },
   selectionBadge: {
     position: 'absolute',
@@ -753,7 +827,7 @@ const s = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
@@ -763,12 +837,9 @@ const s = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     right: 8,
-    width: 20,
-    height: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 3,
   },
   batchActionBar: {
     position: 'absolute',
@@ -783,10 +854,11 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 16,
+    shadowRadius: 12,
     elevation: 8,
+    zIndex: 100,
   },
   batchCountText: {
     fontSize: 14,
@@ -799,46 +871,37 @@ const s = StyleSheet.create({
     gap: 16,
   },
   batchIconBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 6,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   cleanSheet: {
     padding: 24,
     paddingBottom: 40,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     borderCurve: 'continuous',
   },
   cleanHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
   cleanTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
   },
   cleanSub: {
     fontSize: 13,
-    fontWeight: '500',
     marginTop: 2,
-    fontVariant: ['tabular-nums'],
   },
-  cleanBody: {
-    marginTop: 10,
-  },
+  cleanBody: {},
   statsBanner: {
     padding: 16,
-    alignItems: 'center',
     marginBottom: 20,
+    borderCurve: 'continuous',
   },
   statsNumber: {
     fontSize: 28,
@@ -846,74 +909,83 @@ const s = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   statsLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
     marginTop: 4,
-    textAlign: 'center',
   },
   clusterTitle: {
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   clusterPreviewRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 24,
   },
   clusterCard: {
-    width: 90,
-    height: 110,
     position: 'relative',
   },
   clusterThumb: {
-    width: '100%',
-    height: '100%',
+    width: 80,
+    height: 80,
+    borderCurve: 'continuous',
   },
   bestBadge: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    bottom: 4,
+    left: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   bestBadgeText: {
-    color: '#FFFFFF',
+    color: '#FFF',
     fontSize: 9,
     fontWeight: '700',
   },
   executeCleanBtn: {
-    height: 52,
-    justifyContent: 'center',
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderCurve: 'continuous',
   },
   executeCleanText: {
     fontSize: 15,
     fontWeight: '700',
   },
+  noDuplicatesBox: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noDuplicatesTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  noDuplicatesSub: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
   sortSheet: {
     padding: 24,
     paddingBottom: 40,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     borderCurve: 'continuous',
   },
-  sortSheetTitle: {
+  sortTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 16,
+    fontWeight: '700',
+    marginBottom: 18,
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(142, 142, 147, 0.2)',
   },
   sortOptionText: {
-    fontSize: 15,
+    fontSize: 16,
   },
 });

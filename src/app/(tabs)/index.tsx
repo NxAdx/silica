@@ -1,4 +1,4 @@
-// Silica — Screen 1: Home Discovery View (100% Real Device Photos & Zero Dummy Images)
+// Silica — Screen 1: Home Discovery View (Matching docs/ui design (1).jpg)
 import React, { useState } from 'react';
 import {
   View,
@@ -39,6 +39,24 @@ export default function HomeScreen() {
     setShowSortModal(true);
   };
 
+  // Helper to render split date: bold day+month, muted grey year
+  const renderSplitDate = (dateStr: string) => {
+    const match = dateStr.match(/^(\d{1,2}\s+[A-Za-z]+)\s+(\d{4})$/);
+    if (match) {
+      return (
+        <Text style={s.recentDate} numberOfLines={1}>
+          <Text style={{ color: colors.ink, fontWeight: '700' }}>{match[1]} </Text>
+          <Text style={{ color: colors.inkDim, fontWeight: '400' }}>{match[2]}</Text>
+        </Text>
+      );
+    }
+    return (
+      <Text style={[s.recentDate, { color: colors.ink }]} numberOfLines={1}>
+        {dateStr}
+      </Text>
+    );
+  };
+
   return (
     <View style={[s.root, { backgroundColor: colors.bg }]}>
       <ScrollView
@@ -47,7 +65,7 @@ export default function HomeScreen() {
           s.content,
           {
             paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 20) + 96,
+            paddingBottom: Math.max(insets.bottom, 20) + 105,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -195,7 +213,11 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Image
-                    source={{ uri: item.coverUri }}
+                    source={{
+                      uri: item.coverUri,
+                      width: 250,
+                      height: 330,
+                    }}
                     style={[s.recentThumb, { borderRadius: radius.grid }]}
                     contentFit="cover"
                     transition={100}
@@ -204,12 +226,7 @@ export default function HomeScreen() {
                     recyclingKey={item.id}
                     placeholder={isDark ? '#141416' : '#E5E5EA'}
                   />
-                  <Text
-                    style={[s.recentDate, { color: colors.ink }]}
-                    numberOfLines={1}
-                  >
-                    {item.dateLabel}
-                  </Text>
+                  {renderSplitDate(item.dateLabel)}
                   <Text
                     style={[s.recentMeta, { color: colors.inkDim }]}
                     numberOfLines={1}
@@ -222,7 +239,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Trips / Folders Section (Matching docs/ui design (1).jpg) */}
+        {/* Trips / Albums Section (Matching docs/ui design (1).jpg) */}
         {albums.length > 0 && (
           <>
             <View style={s.sectionHeader}>
@@ -258,7 +275,11 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Image
-                    source={{ uri: item.coverUri }}
+                    source={{
+                      uri: item.coverUri,
+                      width: 250,
+                      height: 330,
+                    }}
                     style={[s.recentThumb, { borderRadius: radius.grid }]}
                     contentFit="cover"
                     transition={100}
@@ -268,7 +289,7 @@ export default function HomeScreen() {
                     placeholder={isDark ? '#141416' : '#E5E5EA'}
                   />
                   <Text
-                    style={[s.recentDate, { color: colors.ink }]}
+                    style={[s.recentDate, { color: colors.ink, fontWeight: '700' }]}
                     numberOfLines={1}
                   >
                     {item.name}
@@ -286,7 +307,7 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Sort Order Selector Modal */}
+      {/* Sort Menu Sheet */}
       <Modal
         visible={showSortModal}
         transparent
@@ -306,8 +327,8 @@ export default function HomeScreen() {
               },
             ]}
           >
-            <Text style={[s.sortSheetTitle, { color: colors.ink }]}>
-              Sort Collections
+            <Text style={[s.sortTitle, { color: colors.ink }]}>
+              Sort Photos & Collections
             </Text>
 
             <Pressable
@@ -375,33 +396,9 @@ export default function HomeScreen() {
                   },
                 ]}
               >
-                Largest Storage Size
+                Largest Size
               </Text>
               {sortOrder === 'size_desc' && (
-                <Ionicons name="checkmark" size={18} color={colors.ink} />
-              )}
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                setSortOrder('name_asc');
-                setShowSortModal(false);
-              }}
-              style={s.sortOption}
-            >
-              <Text
-                style={[
-                  s.sortOptionText,
-                  {
-                    color:
-                      sortOrder === 'name_asc' ? colors.ink : colors.inkDim,
-                    fontWeight: sortOrder === 'name_asc' ? '700' : '500',
-                  },
-                ]}
-              >
-                Name (A to Z)
-              </Text>
-              {sortOrder === 'name_asc' && (
                 <Ionicons name="checkmark" size={18} color={colors.ink} />
               )}
             </Pressable>
@@ -420,19 +417,20 @@ const s = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
     marginBottom: 20,
-    marginTop: 8,
+    marginTop: 6,
   },
   headerTitle: {
     fontSize: 34,
     fontWeight: '800',
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
   headerActions: {
     flexDirection: 'row',
@@ -448,44 +446,50 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   permissionCard: {
+    marginHorizontal: 20,
     padding: 24,
+    marginBottom: 24,
     borderWidth: 1,
-    borderCurve: 'continuous',
     alignItems: 'center',
-    marginBottom: 28,
+    borderCurve: 'continuous',
   },
   permissionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
   },
   permissionSub: {
     fontSize: 13,
-    lineHeight: 18,
     textAlign: 'center',
-    marginBottom: 20,
+    lineHeight: 18,
+    marginBottom: 16,
   },
   grantBtn: {
-    height: 46,
     paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 12,
     borderCurve: 'continuous',
   },
   grantBtnText: {
     fontSize: 14,
     fontWeight: '700',
   },
+  heroRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 28,
+  },
   emptyHero: {
-    padding: 36,
+    marginHorizontal: 20,
+    padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 28,
     borderCurve: 'continuous',
   },
   emptyHeroTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     marginTop: 10,
     marginBottom: 4,
@@ -493,27 +497,24 @@ const s = StyleSheet.create({
   emptyHeroSub: {
     fontSize: 12,
     textAlign: 'center',
-  },
-  heroRow: {
-    flexDirection: 'row',
-    gap: 14,
-    marginBottom: 28,
+    lineHeight: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   countRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   countText: {
     fontSize: 14,
@@ -521,58 +522,52 @@ const s = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   horizontalList: {
-    gap: 14,
-    paddingRight: 10,
-    marginBottom: 28,
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 26,
   },
   recentCard: {
-    width: 120,
+    width: 124,
   },
   recentThumb: {
-    width: 120,
-    height: 150,
-    overflow: 'hidden',
+    width: 124,
+    height: 165,
     borderCurve: 'continuous',
-    backgroundColor: '#E5E5EA',
     marginBottom: 8,
+    backgroundColor: '#1E1E22',
   },
   recentDate: {
     fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: -0.1,
+    letterSpacing: -0.2,
+    marginBottom: 2,
   },
   recentMeta: {
     fontSize: 11,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
-    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   sortSheet: {
     padding: 24,
     paddingBottom: 40,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     borderCurve: 'continuous',
   },
-  sortSheetTitle: {
+  sortTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 16,
+    fontWeight: '700',
+    marginBottom: 18,
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(142, 142, 147, 0.2)',
   },
   sortOptionText: {
-    fontSize: 15,
+    fontSize: 16,
   },
 });
