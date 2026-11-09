@@ -25,6 +25,12 @@ local.properties
 docs/
 context/
 .agents/
+.agent/
+.codex/
+.github/skills/
+.github/agents/
+.github/hooks/
+*.exe
 screenshot*/
 ss/
 keystore_base64.txt
